@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, serial, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, timestamp, integer, unique } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -78,3 +78,28 @@ export type Comment = typeof comments.$inferSelect;
 
 // Type combiné pour un commentaire avec son auteur
 export type CommentWithUser = Comment & { user: { id: number; name: string } };
+
+// Préférences des utilisateurs sur les fiches
+export const preferences = pgTable("preferences", {
+  id: serial("id").primaryKey(),
+  itemId: integer("item_id").notNull(),
+  userId: integer("user_id").notNull(),
+  level: varchar("level", { length: 10 }).notNull(), // 'love', 'maybe', 'no'
+  updatedAt: timestamp("updated_at").defaultNow(),
+}, (table) => [
+  unique("preferences_item_user_unique").on(table.itemId, table.userId),
+]);
+
+export const insertPreferenceSchema = createInsertSchema(preferences).pick({
+  itemId: true,
+  userId: true,
+  level: true,
+}).extend({
+  level: z.enum(["love", "maybe", "no"]),
+});
+
+export type InsertPreference = z.infer<typeof insertPreferenceSchema>;
+export type Preference = typeof preferences.$inferSelect;
+
+// Type combiné pour une préférence avec l'utilisateur
+export type PreferenceWithUser = Preference & { user: { id: number; name: string } };

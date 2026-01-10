@@ -362,5 +362,87 @@ export async function registerRoutes(
     }
   });
 
+  // Récupérer la préférence de l'utilisateur courant pour une fiche
+  app.get("/api/items/:itemId/preferences/me", async (req, res) => {
+    try {
+      const userId = parseInt(req.headers["x-user-id"] as string);
+      if (isNaN(userId)) {
+        return res.status(401).json({ message: "Utilisateur non identifié" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "Utilisateur non trouvé" });
+      }
+
+      const itemId = parseInt(req.params.itemId);
+      if (isNaN(itemId)) {
+        return res.status(400).json({ message: "ID de fiche invalide" });
+      }
+
+      const preference = await storage.getPreferenceByItemAndUser(itemId, userId);
+      res.json(preference || null);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la récupération de la préférence" });
+    }
+  });
+
+  // Récupérer toutes les préférences d'une fiche
+  app.get("/api/items/:itemId/preferences", async (req, res) => {
+    try {
+      const itemId = parseInt(req.params.itemId);
+      if (isNaN(itemId)) {
+        return res.status(400).json({ message: "ID de fiche invalide" });
+      }
+
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ message: "Fiche non trouvée" });
+      }
+
+      const preferences = await storage.getPreferencesByItemId(itemId);
+      res.json(preferences);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la récupération des préférences" });
+    }
+  });
+
+  // Définir ou mettre à jour sa préférence pour une fiche
+  app.post("/api/items/:itemId/preferences", async (req, res) => {
+    try {
+      const userId = parseInt(req.headers["x-user-id"] as string);
+      if (isNaN(userId)) {
+        return res.status(401).json({ message: "Utilisateur non identifié" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "Utilisateur non trouvé" });
+      }
+
+      const itemId = parseInt(req.params.itemId);
+      if (isNaN(itemId)) {
+        return res.status(400).json({ message: "ID de fiche invalide" });
+      }
+
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ message: "Fiche non trouvée" });
+      }
+
+      const preferenceSchema = z.object({
+        level: z.enum(["love", "maybe", "no"]),
+      });
+
+      const result = preferenceSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Données invalides", errors: result.error.errors });
+      }
+
+      const preference = await storage.upsertPreference(itemId, userId, result.data.level);
+      res.status(200).json(preference);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de l'enregistrement de la préférence" });
+    }
+  });
+
   return httpServer;
 }

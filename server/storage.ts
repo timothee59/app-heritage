@@ -1,6 +1,6 @@
-import { type User, type InsertUser, type Item, type Photo, type ItemWithPhotos, type Comment, type CommentWithUser, users, items, photos, comments } from "@shared/schema";
+import { type User, type InsertUser, type Item, type Photo, type ItemWithPhotos, type Comment, type CommentWithUser, type Preference, type PreferenceWithUser, users, items, photos, comments, preferences } from "@shared/schema";
 import { db } from "./db";
-import { eq, asc, desc, max } from "drizzle-orm";
+import { eq, asc, desc, max, and } from "drizzle-orm";
 
 // Interface de stockage pour les opérations CRUD
 export interface IStorage {
@@ -28,6 +28,11 @@ export interface IStorage {
   getCommentsByItemId(itemId: number): Promise<CommentWithUser[]>;
   createComment(itemId: number, userId: number, text: string): Promise<CommentWithUser>;
   deleteComment(commentId: number, userId: number): Promise<boolean>;
+  
+  // Preferences
+  getPreferenceByItemAndUser(itemId: number, userId: number): Promise<Preference | undefined>;
+  getPreferencesByItemId(itemId: number): Promise<PreferenceWithUser[]>;
+  upsertPreference(itemId: number, userId: number, level: string): Promise<Preference>;
 }
 
 // DatabaseStorage - Utilise PostgreSQL via Drizzle ORM
@@ -192,6 +197,50 @@ export class DatabaseStorage implements IStorage {
     
     const result = await db.delete(comments).where(eq(comments.id, commentId)).returning();
     return result.length > 0;
+  }
+
+  // Preferences
+  async getPreferenceByItemAndUser(itemId: number, userId: number): Promise<Preference | undefined> {
+    const [preference] = await db.select().from(preferences)
+      .where(and(eq(preferences.itemId, itemId), eq(preferences.userId, userId)));
+    return preference || undefined;
+  }
+
+  async getPreferencesByItemId(itemId: number): Promise<PreferenceWithUser[]> {
+    const itemPreferences = await db.select().from(preferences)
+      .where(eq(preferences.itemId, itemId));
+    
+    const result: PreferenceWithUser[] = [];
+    for (const pref of itemPreferences) {
+      const [user] = await db.select().from(users).where(eq(users.id, pref.userId));
+      if (user) {
+        result.push({
+          ...pref,
+          user: { id: user.id, name: user.name }
+        });
+      }
+    }
+    
+    return result;
+  }
+
+  async upsertPreference(itemId: number, userId: number, level: string): Promise<Preference> {
+    const existing = await this.getPreferenceByItemAndUser(itemId, userId);
+    
+    if (existing) {
+      const [updated] = await db.update(preferences)
+        .set({ level, updatedAt: new Date() })
+        .where(eq(preferences.id, existing.id))
+        .returning();
+      return updated;
+    } else {
+      const [created] = await db.insert(preferences).values({
+        itemId,
+        userId,
+        level,
+      }).returning();
+      return created;
+    }
   }
 }
 

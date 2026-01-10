@@ -7,10 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Pencil, MessageSquare, Send } from "lucide-react";
+import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Pencil, MessageSquare, Send, Heart, HelpCircle, Hand } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { ItemWithPhotos, CommentWithUser } from "@shared/schema";
+import type { ItemWithPhotos, CommentWithUser, Preference } from "@shared/schema";
 
 function formatCommentDate(dateString: string): string {
   const date = new Date(dateString);
@@ -106,6 +106,18 @@ export default function ItemDetailPage() {
   const { data: comments = [], isLoading: isLoadingComments } = useQuery<CommentWithUser[]>({
     queryKey: ["/api/items", itemId, "comments"],
     enabled: itemId > 0,
+  });
+
+  const { data: myPreference, isLoading: isLoadingPreference } = useQuery<Preference | null>({
+    queryKey: ["/api/items", itemId, "preferences", "me", currentUserId],
+    queryFn: async () => {
+      const response = await apiRequest("GET", `/api/items/${itemId}/preferences/me`, undefined, {
+        "X-User-Id": currentUserId || "",
+      });
+      if (!response.ok) return null;
+      return await response.json();
+    },
+    enabled: itemId > 0 && !!currentUserId,
   });
 
   // Synchroniser titleValue et descriptionValue quand item change
@@ -346,6 +358,32 @@ export default function ItemDetailPage() {
       e.preventDefault();
       handleAddComment();
     }
+  };
+
+  const setPreferenceMutation = useMutation({
+    mutationFn: async (level: "love" | "maybe" | "no") => {
+      const response = await apiRequest("POST", `/api/items/${itemId}/preferences`, { level }, {
+        "X-User-Id": currentUserId || "",
+      });
+      return await response.json() as Preference;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items", itemId, "preferences", "me"] });
+      toast({
+        title: "Préférence enregistrée !",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible d'enregistrer la préférence.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSetPreference = (level: "love" | "maybe" | "no") => {
+    setPreferenceMutation.mutate(level);
   };
 
   const movePhotoUp = () => {
@@ -718,6 +756,62 @@ export default function ItemDetailPage() {
               )}
               <Pencil className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-1" />
             </button>
+          )}
+        </div>
+
+        <div className="mt-8">
+          <h2 className="text-lg font-semibold mb-4">Votre choix</h2>
+          {isLoadingPreference ? (
+            <div className="flex gap-2">
+              <Skeleton className="h-16 flex-1" />
+              <Skeleton className="h-16 flex-1" />
+              <Skeleton className="h-16 flex-1" />
+            </div>
+          ) : (
+            <div className="grid grid-cols-3 gap-2">
+              <Button
+                variant="outline"
+                onClick={() => handleSetPreference("love")}
+                disabled={setPreferenceMutation.isPending}
+                className={`flex flex-col h-auto py-3 min-h-16 transition-all ${
+                  myPreference?.level === "love" 
+                    ? "border-2 border-red-500 bg-red-50 dark:bg-red-950 scale-105" 
+                    : ""
+                }`}
+                data-testid="button-preference-love"
+              >
+                <Heart className={`w-6 h-6 mb-1 ${myPreference?.level === "love" ? "text-red-500 fill-red-500" : "text-red-400"}`} />
+                <span className="text-xs text-center">Je le veux !</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleSetPreference("maybe")}
+                disabled={setPreferenceMutation.isPending}
+                className={`flex flex-col h-auto py-3 min-h-16 transition-all ${
+                  myPreference?.level === "maybe" 
+                    ? "border-2 border-orange-500 bg-orange-50 dark:bg-orange-950 scale-105" 
+                    : ""
+                }`}
+                data-testid="button-preference-maybe"
+              >
+                <HelpCircle className={`w-6 h-6 mb-1 ${myPreference?.level === "maybe" ? "text-orange-500" : "text-orange-400"}`} />
+                <span className="text-xs text-center">Si personne</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => handleSetPreference("no")}
+                disabled={setPreferenceMutation.isPending}
+                className={`flex flex-col h-auto py-3 min-h-16 transition-all ${
+                  myPreference?.level === "no" 
+                    ? "border-2 border-gray-500 bg-gray-100 dark:bg-gray-800 scale-105" 
+                    : ""
+                }`}
+                data-testid="button-preference-no"
+              >
+                <Hand className={`w-6 h-6 mb-1 ${myPreference?.level === "no" ? "text-gray-600" : "text-gray-400"}`} />
+                <span className="text-xs text-center">Pas intéressé</span>
+              </Button>
+            </div>
           )}
         </div>
 
