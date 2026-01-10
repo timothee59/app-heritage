@@ -89,6 +89,15 @@ export async function registerRoutes(
         return res.json(items);
       }
 
+      // Filtre "to-review" : fiches sans préférence de l'utilisateur
+      if (filter === "to-review") {
+        if (isNaN(currentUserId)) {
+          return res.status(401).json({ message: "Utilisateur non identifié" });
+        }
+        const items = await storage.getItemsWithoutPreference(currentUserId);
+        return res.json(items);
+      }
+
       // Par défaut : toutes les fiches
       const items = await storage.getAllItems();
       res.json(items);

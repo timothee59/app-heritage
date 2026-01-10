@@ -37,6 +37,7 @@ export interface IStorage {
   // Filtered queries
   getItemsByUserPreference(userId: number, level: string): Promise<ItemWithPhotos[]>;
   getItemsWithConflicts(): Promise<ItemWithPhotosAndLovers[]>;
+  getItemsWithoutPreference(userId: number): Promise<ItemWithPhotos[]>;
 }
 
 // DatabaseStorage - Utilise PostgreSQL via Drizzle ORM
@@ -303,6 +304,39 @@ export class DatabaseStorage implements IStorage {
         .orderBy(asc(photos.position));
       
       result.push({ ...item, photos: itemPhotos, lovers, loveCount });
+    }
+    
+    return result;
+  }
+
+  async getItemsWithoutPreference(userId: number): Promise<ItemWithPhotos[]> {
+    // Get items where user has NOT expressed any preference
+    const itemsWithoutPref = await db.execute(sql`
+      SELECT i.*
+      FROM items i
+      LEFT JOIN preferences p ON i.id = p.item_id AND p.user_id = ${userId}
+      WHERE p.id IS NULL
+      ORDER BY i.number
+    `);
+    
+    if (itemsWithoutPref.rows.length === 0) return [];
+    
+    const result: ItemWithPhotos[] = [];
+    for (const row of itemsWithoutPref.rows) {
+      const itemId = row.id as number;
+      const itemPhotos = await db.select().from(photos)
+        .where(eq(photos.itemId, itemId))
+        .orderBy(asc(photos.position));
+      
+      result.push({
+        id: row.id as number,
+        number: row.number as number,
+        title: row.title as string | null,
+        description: row.description as string | null,
+        createdBy: row.created_by as number,
+        createdAt: new Date(row.created_at as string),
+        photos: itemPhotos
+      });
     }
     
     return result;

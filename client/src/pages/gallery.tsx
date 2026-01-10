@@ -7,12 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image, Heart, AlertTriangle, Users, HeartOff, PartyPopper } from "lucide-react";
+import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image, Heart, AlertTriangle, Users, HeartOff, PartyPopper, Eye, Trophy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { User, ItemWithPhotos, ItemWithPhotosAndLovers } from "@shared/schema";
 
-type FilterType = "all" | "my-love" | "user-love" | "conflicts";
+type FilterType = "all" | "my-love" | "user-love" | "conflicts" | "to-review";
 
 const MAX_WIDTH = 1200;
 const MAX_HEIGHT = 1200;
@@ -94,6 +94,7 @@ export default function GalleryPage() {
     if (filter === "my-love") return "/api/items?filter=my-love";
     if (filter === "user-love" && selectedUserId) return `/api/items?filter=user-love&userId=${selectedUserId}`;
     if (filter === "conflicts") return "/api/items?filter=conflicts";
+    if (filter === "to-review") return "/api/items?filter=to-review";
     return "/api/items";
   };
 
@@ -338,6 +339,21 @@ export default function GalleryPage() {
             <Users className="w-4 h-4" />
             Par personne
           </Button>
+          <Button
+            variant={filter === "to-review" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter("to-review")}
+            className="gap-1"
+            data-testid="filter-to-review"
+          >
+            <Eye className="w-4 h-4" />
+            À traiter
+            {items && filter === "to-review" && items.length > 0 && (
+              <span className="bg-primary-foreground text-primary px-1.5 py-0.5 rounded-full text-xs font-medium ml-1">
+                {items.length}
+              </span>
+            )}
+          </Button>
         </div>
 
         {filter === "user-love" && (
@@ -431,6 +447,21 @@ export default function GalleryPage() {
               <p className="text-muted-foreground mb-4">
                 La famille est en harmonie. Personne ne veut le même objet.
               </p>
+            </CardContent>
+          </Card>
+        ) : filter === "to-review" ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-green-100 dark:bg-green-900 flex items-center justify-center mb-4">
+                <Trophy className="w-8 h-8 text-green-600 dark:text-green-400" />
+              </div>
+              <h2 className="text-lg font-medium mb-2">Bravo !</h2>
+              <p className="text-muted-foreground mb-4">
+                Vous avez traité toutes les fiches.
+              </p>
+              <Button variant="outline" onClick={() => setFilter("all")}>
+                Voir tous les objets
+              </Button>
             </CardContent>
           </Card>
         ) : filter === "user-love" && selectedUserId ? (
