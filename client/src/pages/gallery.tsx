@@ -281,6 +281,7 @@ export default function GalleryPage() {
               <Card 
                 key={item.id} 
                 className="overflow-hidden hover-elevate cursor-pointer"
+                onClick={() => setLocation(`/item/${item.id}`)}
                 data-testid={`card-item-${item.id}`}
               >
                 <div className="aspect-square relative">

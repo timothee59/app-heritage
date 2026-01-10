@@ -16,6 +16,10 @@ export interface IStorage {
   
   // Photos
   addPhoto(itemId: number, data: string, position: number): Promise<Photo>;
+  deletePhoto(photoId: number): Promise<boolean>;
+  getPhotosByItemId(itemId: number): Promise<Photo[]>;
+  getNextPhotoPosition(itemId: number): Promise<number>;
+  reorderPhotos(itemId: number, photoIds: number[]): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -147,6 +151,32 @@ export class MemStorage implements IStorage {
     };
     this.photos.set(id, photo);
     return photo;
+  }
+
+  async deletePhoto(photoId: number): Promise<boolean> {
+    return this.photos.delete(photoId);
+  }
+
+  async getPhotosByItemId(itemId: number): Promise<Photo[]> {
+    return Array.from(this.photos.values())
+      .filter(p => p.itemId === itemId)
+      .sort((a, b) => a.position - b.position);
+  }
+
+  async getNextPhotoPosition(itemId: number): Promise<number> {
+    const photos = await this.getPhotosByItemId(itemId);
+    if (photos.length === 0) return 0;
+    return Math.max(...photos.map(p => p.position)) + 1;
+  }
+
+  async reorderPhotos(itemId: number, photoIds: number[]): Promise<void> {
+    photoIds.forEach((photoId, index) => {
+      const photo = this.photos.get(photoId);
+      if (photo && photo.itemId === itemId) {
+        photo.position = index;
+        this.photos.set(photoId, photo);
+      }
+    });
   }
 }
 

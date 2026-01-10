@@ -7,12 +7,14 @@ import NotFound from "@/pages/not-found";
 import IdentificationPage from "@/pages/identification";
 import GalleryPage from "@/pages/gallery";
 import AddUserPage from "@/pages/add-user";
+import ItemDetailPage from "@/pages/item-detail";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={IdentificationPage} />
       <Route path="/gallery" component={GalleryPage} />
+      <Route path="/item/:id" component={ItemDetailPage} />
       <Route path="/add-user" component={AddUserPage} />
       <Route component={NotFound} />
     </Switch>

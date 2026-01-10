@@ -117,5 +117,124 @@ export async function registerRoutes(
     }
   });
 
+  // Ajouter une photo à une fiche existante
+  app.post("/api/items/:itemId/photos", async (req, res) => {
+    try {
+      // Vérifier l'authentification
+      const userId = parseInt(req.headers["x-user-id"] as string);
+      if (isNaN(userId)) {
+        return res.status(401).json({ message: "Utilisateur non identifié" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "Utilisateur non trouvé" });
+      }
+
+      const itemId = parseInt(req.params.itemId);
+      if (isNaN(itemId)) {
+        return res.status(400).json({ message: "ID de fiche invalide" });
+      }
+
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ message: "Fiche non trouvée" });
+      }
+
+      const result = createItemSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Données invalides", errors: result.error.errors });
+      }
+
+      const position = await storage.getNextPhotoPosition(itemId);
+      const photo = await storage.addPhoto(itemId, result.data.photo, position);
+      res.status(201).json(photo);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de l'ajout de la photo" });
+    }
+  });
+
+  // Supprimer une photo d'une fiche
+  app.delete("/api/items/:itemId/photos/:photoId", async (req, res) => {
+    try {
+      // Vérifier l'authentification
+      const userId = parseInt(req.headers["x-user-id"] as string);
+      if (isNaN(userId)) {
+        return res.status(401).json({ message: "Utilisateur non identifié" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "Utilisateur non trouvé" });
+      }
+
+      const itemId = parseInt(req.params.itemId);
+      const photoId = parseInt(req.params.photoId);
+      
+      if (isNaN(itemId) || isNaN(photoId)) {
+        return res.status(400).json({ message: "ID invalide" });
+      }
+
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ message: "Fiche non trouvée" });
+      }
+
+      // Vérifier que la photo appartient à cette fiche
+      const photoExists = item.photos.some(p => p.id === photoId);
+      if (!photoExists) {
+        return res.status(404).json({ message: "Photo non trouvée dans cette fiche" });
+      }
+
+      // Vérifier qu'il reste au moins une photo
+      if (item.photos.length <= 1) {
+        return res.status(400).json({ message: "Une fiche doit avoir au moins une photo" });
+      }
+
+      const deleted = await storage.deletePhoto(photoId);
+      if (!deleted) {
+        return res.status(404).json({ message: "Photo non trouvée" });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la suppression de la photo" });
+    }
+  });
+
+  // Réordonner les photos d'une fiche
+  app.patch("/api/items/:itemId/photos/reorder", async (req, res) => {
+    try {
+      // Vérifier l'authentification
+      const userId = parseInt(req.headers["x-user-id"] as string);
+      if (isNaN(userId)) {
+        return res.status(401).json({ message: "Utilisateur non identifié" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "Utilisateur non trouvé" });
+      }
+
+      const itemId = parseInt(req.params.itemId);
+      if (isNaN(itemId)) {
+        return res.status(400).json({ message: "ID de fiche invalide" });
+      }
+
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ message: "Fiche non trouvée" });
+      }
+
+      const { photoIds } = req.body;
+      if (!Array.isArray(photoIds)) {
+        return res.status(400).json({ message: "photoIds doit être un tableau" });
+      }
+
+      await storage.reorderPhotos(itemId, photoIds);
+      const updatedItem = await storage.getItem(itemId);
+      res.json(updatedItem);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors du réordonnancement des photos" });
+    }
+  });
+
   return httpServer;
 }
