@@ -685,11 +685,11 @@ export default function ItemDetailPage() {
           </div>
           
           {item.photos.length > 1 && (
-            <>
+            <div className="absolute inset-0 flex items-center justify-between px-2 pointer-events-none">
               <Button
                 variant="secondary"
                 size="icon"
-                className="absolute left-2 top-1/2 -translate-y-1/2 opacity-80"
+                className="opacity-90 shadow-lg pointer-events-auto"
                 onClick={(e) => { e.stopPropagation(); goToPrevPhoto(); }}
                 data-testid="button-prev-photo"
               >
@@ -698,19 +698,21 @@ export default function ItemDetailPage() {
               <Button
                 variant="secondary"
                 size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2 opacity-80"
+                className="opacity-90 shadow-lg pointer-events-auto"
                 onClick={(e) => { e.stopPropagation(); goToNextPhoto(); }}
                 data-testid="button-next-photo"
               >
                 <ChevronRight className="w-5 h-5" />
               </Button>
-              
-              <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 px-3 py-1 rounded-full">
-                <span className="text-white text-sm">
-                  {currentPhotoIndex + 1} / {item.photos.length}
-                </span>
-              </div>
-            </>
+            </div>
+          )}
+          
+          {item.photos.length > 1 && (
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 bg-black/60 px-3 py-1 rounded-full">
+              <span className="text-white text-sm font-medium">
+                {currentPhotoIndex + 1} / {item.photos.length}
+              </span>
+            </div>
           )}
         </div>
 
