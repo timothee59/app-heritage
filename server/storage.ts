@@ -1,4 +1,6 @@
-import { type User, type InsertUser, type Item, type Photo, type ItemWithPhotos } from "@shared/schema";
+import { type User, type InsertUser, type Item, type Photo, type ItemWithPhotos, users, items, photos } from "@shared/schema";
+import { db } from "./db";
+import { eq, asc, desc, max } from "drizzle-orm";
 
 // Interface de stockage pour les opérations CRUD
 export interface IStorage {
@@ -22,162 +24,109 @@ export interface IStorage {
   reorderPhotos(itemId: number, photoIds: number[]): Promise<void>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private items: Map<number, Item>;
-  private photos: Map<number, Photo>;
-  private nextUserId: number;
-  private nextItemId: number;
-  private nextPhotoId: number;
-
-  constructor() {
-    this.users = new Map();
-    this.items = new Map();
-    this.photos = new Map();
-    this.nextUserId = 1;
-    this.nextItemId = 1;
-    this.nextPhotoId = 1;
-    
-    // Données de test pour la famille
-    this.seedTestData();
-  }
-
-  private seedTestData() {
-    const testUsers: InsertUser[] = [
-      { name: "Marie", role: "parent" },
-      { name: "Jean", role: "parent" },
-      { name: "Sophie", role: "enfant" },
-      { name: "Pierre", role: "enfant" },
-      { name: "Claire", role: "enfant" },
-    ];
-
-    testUsers.forEach((user) => {
-      const id = this.nextUserId++;
-      this.users.set(id, {
-        ...user,
-        id,
-        createdAt: new Date(),
-      });
-    });
-  }
-
+// DatabaseStorage - Utilise PostgreSQL via Drizzle ORM
+export class DatabaseStorage implements IStorage {
   // Users
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user || undefined;
   }
 
   async getUserByName(name: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.name.toLowerCase() === name.toLowerCase(),
-    );
+    const allUsers = await db.select().from(users);
+    return allUsers.find(u => u.name.toLowerCase() === name.toLowerCase());
   }
 
   async getAllUsers(): Promise<User[]> {
-    return Array.from(this.users.values()).sort((a, b) => 
-      a.name.localeCompare(b.name)
-    );
+    return db.select().from(users).orderBy(asc(users.name));
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.nextUserId++;
-    const user: User = { 
-      ...insertUser, 
-      id,
-      createdAt: new Date(),
-    };
-    this.users.set(id, user);
+    const [user] = await db.insert(users).values(insertUser).returning();
     return user;
   }
 
   // Items
   async getNextItemNumber(): Promise<number> {
-    const allItems = Array.from(this.items.values());
-    if (allItems.length === 0) return 1;
-    return Math.max(...allItems.map(i => i.number)) + 1;
+    const result = await db.select({ maxNum: max(items.number) }).from(items);
+    return (result[0]?.maxNum ?? 0) + 1;
   }
 
   async getItem(id: number): Promise<ItemWithPhotos | undefined> {
-    const item = this.items.get(id);
+    const [item] = await db.select().from(items).where(eq(items.id, id));
     if (!item) return undefined;
     
-    const itemPhotos = Array.from(this.photos.values())
-      .filter(p => p.itemId === id)
-      .sort((a, b) => a.position - b.position);
+    const itemPhotos = await db.select().from(photos)
+      .where(eq(photos.itemId, id))
+      .orderBy(asc(photos.position));
     
     return { ...item, photos: itemPhotos };
   }
 
   async getAllItems(): Promise<ItemWithPhotos[]> {
-    const allItems = Array.from(this.items.values())
-      .sort((a, b) => a.number - b.number); // Plus anciens en premier (ordre croissant)
+    const allItems = await db.select().from(items).orderBy(asc(items.number));
     
-    return allItems.map(item => {
-      const itemPhotos = Array.from(this.photos.values())
-        .filter(p => p.itemId === item.id)
-        .sort((a, b) => a.position - b.position);
-      return { ...item, photos: itemPhotos };
-    });
+    const result: ItemWithPhotos[] = [];
+    for (const item of allItems) {
+      const itemPhotos = await db.select().from(photos)
+        .where(eq(photos.itemId, item.id))
+        .orderBy(asc(photos.position));
+      result.push({ ...item, photos: itemPhotos });
+    }
+    
+    return result;
   }
 
   async createItem(createdBy: number, photoData: string): Promise<ItemWithPhotos> {
-    const id = this.nextItemId++;
     const number = await this.getNextItemNumber();
     
-    const item: Item = {
-      id,
+    const [item] = await db.insert(items).values({
       number,
+      createdBy,
       title: null,
       description: null,
-      createdBy,
-      createdAt: new Date(),
-    };
-    this.items.set(id, item);
+    }).returning();
     
-    // Créer la photo associée
-    const photo = await this.addPhoto(id, photoData, 0);
+    const photo = await this.addPhoto(item.id, photoData, 0);
     
     return { ...item, photos: [photo] };
   }
 
   // Photos
   async addPhoto(itemId: number, data: string, position: number): Promise<Photo> {
-    const id = this.nextPhotoId++;
-    const photo: Photo = {
-      id,
+    const [photo] = await db.insert(photos).values({
       itemId,
       data,
       position,
-      createdAt: new Date(),
-    };
-    this.photos.set(id, photo);
+    }).returning();
     return photo;
   }
 
   async deletePhoto(photoId: number): Promise<boolean> {
-    return this.photos.delete(photoId);
+    const result = await db.delete(photos).where(eq(photos.id, photoId)).returning();
+    return result.length > 0;
   }
 
   async getPhotosByItemId(itemId: number): Promise<Photo[]> {
-    return Array.from(this.photos.values())
-      .filter(p => p.itemId === itemId)
-      .sort((a, b) => a.position - b.position);
+    return db.select().from(photos)
+      .where(eq(photos.itemId, itemId))
+      .orderBy(asc(photos.position));
   }
 
   async getNextPhotoPosition(itemId: number): Promise<number> {
-    const photos = await this.getPhotosByItemId(itemId);
-    if (photos.length === 0) return 0;
-    return Math.max(...photos.map(p => p.position)) + 1;
+    const result = await db.select({ maxPos: max(photos.position) })
+      .from(photos)
+      .where(eq(photos.itemId, itemId));
+    return (result[0]?.maxPos ?? -1) + 1;
   }
 
   async reorderPhotos(itemId: number, photoIds: number[]): Promise<void> {
-    photoIds.forEach((photoId, index) => {
-      const photo = this.photos.get(photoId);
-      if (photo && photo.itemId === itemId) {
-        photo.position = index;
-        this.photos.set(photoId, photo);
-      }
-    });
+    for (let i = 0; i < photoIds.length; i++) {
+      await db.update(photos)
+        .set({ position: i })
+        .where(eq(photos.id, photoIds[i]));
+    }
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
