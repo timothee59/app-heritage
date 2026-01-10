@@ -3,14 +3,14 @@ import { useLocation } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Camera, Plus, User as UserIcon, RefreshCw, Package } from "lucide-react";
+import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { User, ItemWithPhotos } from "@shared/schema";
 
-// Compression d'image
 const MAX_WIDTH = 1200;
 const MAX_HEIGHT = 1200;
 const QUALITY = 0.8;
@@ -19,7 +19,7 @@ function compressImage(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
-      const img = new Image();
+      const img = new window.Image();
       img.onload = () => {
         const canvas = document.createElement("canvas");
         let { width, height } = img;
@@ -54,11 +54,13 @@ function compressImage(file: File): Promise<string> {
 export default function GalleryPage() {
   const [, setLocation] = useLocation();
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Vérifier si l'utilisateur est identifié
   useEffect(() => {
     const storedUserId = localStorage.getItem("user_id");
     if (!storedUserId) {
@@ -68,18 +70,15 @@ export default function GalleryPage() {
     setCurrentUserId(storedUserId);
   }, [setLocation]);
 
-  // Récupérer les infos de l'utilisateur courant
   const { data: currentUser } = useQuery<User>({
     queryKey: ["/api/users", currentUserId],
     enabled: !!currentUserId,
   });
 
-  // Récupérer tous les items
   const { data: items, isLoading: itemsLoading } = useQuery<ItemWithPhotos[]>({
     queryKey: ["/api/items"],
   });
 
-  // Mutation pour créer un item
   const createItemMutation = useMutation({
     mutationFn: async (photoData: string) => {
       const response = await apiRequest("POST", "/api/items", { photo: photoData }, {
@@ -87,50 +86,97 @@ export default function GalleryPage() {
       });
       return await response.json() as ItemWithPhotos;
     },
-    onSuccess: (item) => {
+    onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+    },
+  });
+
+  const handleCameraCapture = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setIsProcessing(true);
+    setShowAddDialog(false);
+
+    try {
+      const compressedPhoto = await compressImage(file);
+      const item = await createItemMutation.mutateAsync(compressedPhoto);
       toast({
         title: "Fiche créée !",
         description: `Fiche #${item.number} ajoutée au catalogue.`,
       });
-    },
-    onError: () => {
+    } catch {
       toast({
         title: "Erreur",
         description: "Impossible de créer la fiche.",
         variant: "destructive",
       });
-    },
-  });
+    } finally {
+      setIsProcessing(false);
+      if (cameraInputRef.current) {
+        cameraInputRef.current.value = "";
+      }
+    }
+  };
 
-  // Gérer la capture de photo
-  const handleCapture = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
+  const handleGalleryImport = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
 
-    try {
-      const compressedPhoto = await compressImage(file);
-      createItemMutation.mutate(compressedPhoto);
-    } catch {
+    setIsProcessing(true);
+    setShowAddDialog(false);
+
+    const fileArray = Array.from(files);
+    let successCount = 0;
+    let lastNumber = 0;
+
+    for (const file of fileArray) {
+      try {
+        const compressedPhoto = await compressImage(file);
+        const item = await createItemMutation.mutateAsync(compressedPhoto);
+        successCount++;
+        lastNumber = item.number;
+      } catch {
+        // Continue avec les autres fichiers
+      }
+    }
+
+    if (successCount > 0) {
+      if (successCount === 1) {
+        toast({
+          title: "Fiche créée !",
+          description: `Fiche #${lastNumber} ajoutée au catalogue.`,
+        });
+      } else {
+        toast({
+          title: "Fiches créées !",
+          description: `${successCount} fiches ajoutées au catalogue.`,
+        });
+      }
+    } else {
       toast({
         title: "Erreur",
-        description: "Impossible de traiter l'image.",
+        description: "Impossible d'importer les photos.",
         variant: "destructive",
       });
     }
 
-    // Reset l'input pour permettre de reprendre la même photo
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
+    setIsProcessing(false);
+    if (galleryInputRef.current) {
+      galleryInputRef.current.value = "";
     }
   };
 
-  // Ouvrir la caméra
   const handleOpenCamera = () => {
-    fileInputRef.current?.click();
+    setShowAddDialog(false);
+    setTimeout(() => cameraInputRef.current?.click(), 100);
   };
 
-  // Changer d'utilisateur
+  const handleOpenGallery = () => {
+    setShowAddDialog(false);
+    setTimeout(() => galleryInputRef.current?.click(), 100);
+  };
+
   const handleChangeUser = () => {
     localStorage.removeItem("user_id");
     setLocation("/");
@@ -138,18 +184,53 @@ export default function GalleryPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Input caché pour la caméra */}
       <input
-        ref={fileInputRef}
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
-        onChange={handleCapture}
+        onChange={handleCameraCapture}
         className="hidden"
         data-testid="input-camera"
       />
+      <input
+        ref={galleryInputRef}
+        type="file"
+        accept="image/*"
+        multiple
+        onChange={handleGalleryImport}
+        className="hidden"
+        data-testid="input-gallery"
+      />
 
-      {/* Header */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center">Ajouter un objet</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col gap-4 py-4">
+            <Button
+              variant="outline"
+              className="h-20 flex-col gap-2"
+              onClick={handleOpenCamera}
+              data-testid="button-take-photo"
+            >
+              <Camera className="w-8 h-8" />
+              <span className="text-base">Prendre une photo</span>
+            </Button>
+            <Button
+              variant="outline"
+              className="h-20 flex-col gap-2"
+              onClick={handleOpenGallery}
+              data-testid="button-import-gallery"
+            >
+              <Image className="w-8 h-8" />
+              <span className="text-base">Importer depuis la galerie</span>
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <header className="sticky top-0 z-50 bg-background border-b">
         <div className="flex items-center justify-between gap-4 p-4">
           <h1 className="text-lg font-medium">Héritage Partagé</h1>
@@ -187,7 +268,6 @@ export default function GalleryPage() {
         </div>
       </header>
 
-      {/* Contenu principal */}
       <main className="p-4">
         {itemsLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -244,15 +324,14 @@ export default function GalleryPage() {
         )}
       </main>
 
-      {/* Bouton flottant pour ajouter */}
       <Button
         size="lg"
         className="fixed bottom-6 right-6 h-14 w-14 rounded-full shadow-lg"
-        onClick={handleOpenCamera}
-        disabled={createItemMutation.isPending}
+        onClick={() => setShowAddDialog(true)}
+        disabled={isProcessing}
         data-testid="button-add-photo"
       >
-        {createItemMutation.isPending ? (
+        {isProcessing ? (
           <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
         ) : (
           <Plus className="w-6 h-6" />
