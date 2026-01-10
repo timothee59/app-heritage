@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
@@ -61,10 +62,14 @@ export default function ItemDetailPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [titleValue, setTitleValue] = useState("");
+  const [isEditingDescription, setIsEditingDescription] = useState(false);
+  const [descriptionValue, setDescriptionValue] = useState("");
   const titleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const descriptionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
+  const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -82,15 +87,16 @@ export default function ItemDetailPage() {
     enabled: itemId > 0,
   });
 
-  // Synchroniser titleValue quand item change
+  // Synchroniser titleValue et descriptionValue quand item change
   useEffect(() => {
     if (item) {
       setTitleValue(item.title || "");
+      setDescriptionValue(item.description || "");
     }
   }, [item]);
 
   const updateItemMutation = useMutation({
-    mutationFn: async (data: { title?: string | null }) => {
+    mutationFn: async (data: { title?: string | null; description?: string | null }) => {
       const response = await apiRequest("PATCH", `/api/items/${itemId}`, data, {
         "X-User-Id": currentUserId || "",
       });
@@ -106,7 +112,7 @@ export default function ItemDetailPage() {
     onError: () => {
       toast({
         title: "Erreur",
-        description: "Impossible de sauvegarder le titre.",
+        description: "Impossible de sauvegarder les modifications.",
         variant: "destructive",
       });
     },
@@ -152,6 +158,41 @@ export default function ItemDetailPage() {
   const startEditingTitle = () => {
     setIsEditingTitle(true);
     setTimeout(() => titleInputRef.current?.focus(), 50);
+  };
+
+  const saveDescription = useCallback((value: string) => {
+    const trimmedValue = value.trim();
+    updateItemMutation.mutate({ description: trimmedValue || null });
+  }, [updateItemMutation]);
+
+  const handleDescriptionChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setDescriptionValue(newValue);
+    
+    if (descriptionTimeoutRef.current) {
+      clearTimeout(descriptionTimeoutRef.current);
+    }
+    descriptionTimeoutRef.current = setTimeout(() => saveDescription(newValue), 1000);
+  };
+
+  const handleDescriptionBlur = () => {
+    if (descriptionTimeoutRef.current) {
+      clearTimeout(descriptionTimeoutRef.current);
+    }
+    saveDescription(descriptionValue);
+    setIsEditingDescription(false);
+  };
+
+  const handleDescriptionKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape") {
+      setDescriptionValue(item?.description || "");
+      setIsEditingDescription(false);
+    }
+  };
+
+  const startEditingDescription = () => {
+    setIsEditingDescription(true);
+    setTimeout(() => descriptionTextareaRef.current?.focus(), 50);
   };
 
   const addPhotoMutation = useMutation({
@@ -561,13 +602,45 @@ export default function ItemDetailPage() {
           )}
         </div>
 
-        {item.description && (
-          <Card className="mt-6">
-            <CardContent className="pt-4">
-              <p className="text-muted-foreground">{item.description}</p>
-            </CardContent>
-          </Card>
-        )}
+        <div className="mt-6">
+          {isEditingDescription ? (
+            <div className="space-y-2">
+              <Textarea
+                ref={descriptionTextareaRef}
+                value={descriptionValue}
+                onChange={handleDescriptionChange}
+                onBlur={handleDescriptionBlur}
+                onKeyDown={handleDescriptionKeyDown}
+                placeholder="Décrivez l'objet : dimensions, état, origine..."
+                className="min-h-32 text-base"
+                data-testid="textarea-description"
+              />
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDescriptionBlur}
+                  data-testid="button-close-description"
+                >
+                  Fermer
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <button
+              onClick={startEditingDescription}
+              className="flex items-start gap-2 hover-elevate px-3 py-3 rounded-md w-full text-left"
+              data-testid="button-edit-description"
+            >
+              {descriptionValue ? (
+                <p className="whitespace-pre-wrap flex-1">{descriptionValue}</p>
+              ) : (
+                <span className="text-muted-foreground italic">Ajouter une description...</span>
+              )}
+              <Pencil className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-1" />
+            </button>
+          )}
+        </div>
       </main>
     </div>
   );
