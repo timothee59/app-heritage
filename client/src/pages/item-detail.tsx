@@ -7,10 +7,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Pencil, MessageSquare, Send, Heart, HelpCircle, Hand, AlertTriangle, Users, ZoomIn, X } from "lucide-react";
+import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Pencil, MessageSquare, Send, Heart, HelpCircle, Hand, AlertTriangle, Users, ZoomIn, X, RotateCcw } from "lucide-react";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { ItemWithPhotos, CommentWithUser, Preference, PreferenceWithUser, User } from "@shared/schema";
+import type { ItemWithPhotos, ItemWithPhotosAndDeleteInfo, CommentWithUser, Preference, PreferenceWithUser, User } from "@shared/schema";
 
 function formatCommentDate(dateString: string): string {
   const date = new Date(dateString);
@@ -25,6 +26,15 @@ function formatCommentDate(dateString: string): string {
   return date.toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'long'
+  });
+}
+
+function formatDeleteDate(dateString: string | Date): string {
+  const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
+  return date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric'
   });
 }
 
@@ -101,7 +111,7 @@ export default function ItemDetailPage() {
     setCurrentUserId(storedUserId);
   }, [setLocation]);
 
-  const { data: item, isLoading } = useQuery<ItemWithPhotos>({
+  const { data: item, isLoading } = useQuery<ItemWithPhotosAndDeleteInfo>({
     queryKey: ["/api/items", itemId],
     enabled: itemId > 0,
   });
@@ -410,6 +420,54 @@ export default function ItemDetailPage() {
     setPreferenceMutation.mutate(level);
   };
 
+  const deleteItemMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("DELETE", `/api/items/${itemId}`, undefined, {
+        "X-User-Id": currentUserId || "",
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items", itemId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      toast({
+        title: "Fiche supprimée",
+        description: "La fiche a été marquée comme supprimée.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer la fiche.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const restoreItemMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("PATCH", `/api/items/${itemId}/restore`, undefined, {
+        "X-User-Id": currentUserId || "",
+      });
+      return await response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items", itemId] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items"] });
+      toast({
+        title: "Fiche restaurée !",
+        description: "La fiche est de nouveau active.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de restaurer la fiche.",
+        variant: "destructive",
+      });
+    },
+  });
+
   const movePhotoUp = () => {
     if (!item || currentPhotoIndex === 0 || reorderPhotosMutation.isPending) return;
     const newPhotos = [...item.photos];
@@ -632,10 +690,42 @@ export default function ItemDetailPage() {
           <Button variant="ghost" size="icon" onClick={() => setLocation("/gallery")} data-testid="button-back">
             <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-xl font-semibold">#{item.number}</h1>
-          {titleValue && <span className="text-muted-foreground">- {titleValue}</span>}
+          <h1 className={`text-xl font-semibold ${item.deletedAt ? "line-through text-muted-foreground" : ""}`}>#{item.number}</h1>
+          {titleValue && <span className={`text-muted-foreground ${item.deletedAt ? "line-through" : ""}`}>- {titleValue}</span>}
         </div>
       </header>
+
+      {item.deletedAt && (
+        <div className="bg-red-50 dark:bg-red-950 border-b border-red-200 dark:border-red-800 p-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900 flex items-center justify-center flex-shrink-0">
+                <Trash2 className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <p className="font-medium text-red-800 dark:text-red-200">Fiche supprimée</p>
+                <p className="text-sm text-red-600 dark:text-red-400">
+                  par {item.deletedByName || "Inconnu"} le {formatDeleteDate(item.deletedAt)}
+                </p>
+              </div>
+            </div>
+            <Button
+              variant="outline"
+              onClick={() => restoreItemMutation.mutate()}
+              disabled={restoreItemMutation.isPending}
+              className="gap-2 border-green-500 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950"
+              data-testid="button-restore"
+            >
+              {restoreItemMutation.isPending ? (
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <RotateCcw className="w-4 h-4" />
+              )}
+              Restaurer
+            </Button>
+          </div>
+        </div>
+      )}
 
       <main className="p-4">
         <div className="mb-4">
@@ -1121,6 +1211,46 @@ export default function ItemDetailPage() {
             </Button>
           </div>
         </div>
+
+        {!item.deletedAt && (
+          <div className="mt-12 pt-6 border-t">
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full gap-2 text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
+                  data-testid="button-delete-item"
+                >
+                  <Trash2 className="w-4 h-4" />
+                  Supprimer cette fiche
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Supprimer cette fiche ?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    La fiche restera visible (barrée) et pourra être restaurée à tout moment.
+                    Les préférences et commentaires seront conservés.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel data-testid="button-cancel-delete">Annuler</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteItemMutation.mutate()}
+                    className="bg-red-600 hover:bg-red-700"
+                    data-testid="button-confirm-delete"
+                  >
+                    {deleteItemMutation.isPending ? (
+                      <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      "Supprimer"
+                    )}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
       </main>
     </div>
   );

@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Item, type Photo, type ItemWithPhotos, type ItemWithPhotosAndLovers, type ItemWithUserPreference, type Comment, type CommentWithUser, type Preference, type PreferenceWithUser, users, items, photos, comments, preferences } from "@shared/schema";
+import { type User, type InsertUser, type Item, type Photo, type ItemWithPhotos, type ItemWithPhotosAndDeleteInfo, type ItemWithPhotosAndLovers, type ItemWithUserPreference, type Comment, type CommentWithUser, type Preference, type PreferenceWithUser, users, items, photos, comments, preferences } from "@shared/schema";
 import { db } from "./db";
 import { eq, asc, desc, max, and, sql, inArray } from "drizzle-orm";
 
@@ -11,11 +11,13 @@ export interface IStorage {
   createUser(user: InsertUser): Promise<User>;
   
   // Items
-  getItem(id: number): Promise<ItemWithPhotos | undefined>;
-  getAllItems(): Promise<ItemWithPhotos[]>;
+  getItem(id: number): Promise<ItemWithPhotosAndDeleteInfo | undefined>;
+  getAllItems(includeDeleted?: boolean): Promise<ItemWithPhotosAndDeleteInfo[]>;
   createItem(createdBy: number, photoData: string): Promise<ItemWithPhotos>;
   updateItem(id: number, data: { title?: string | null; description?: string | null }): Promise<ItemWithPhotos | undefined>;
   getNextItemNumber(): Promise<number>;
+  softDeleteItem(id: number, deletedBy: number): Promise<ItemWithPhotos | undefined>;
+  restoreItem(id: number): Promise<ItemWithPhotos | undefined>;
   
   // Photos
   addPhoto(itemId: number, data: string, position: number): Promise<Photo>;
@@ -69,7 +71,7 @@ export class DatabaseStorage implements IStorage {
     return (result[0]?.maxNum ?? 0) + 1;
   }
 
-  async getItem(id: number): Promise<ItemWithPhotos | undefined> {
+  async getItem(id: number): Promise<ItemWithPhotosAndDeleteInfo | undefined> {
     const [item] = await db.select().from(items).where(eq(items.id, id));
     if (!item) return undefined;
     
@@ -77,21 +79,80 @@ export class DatabaseStorage implements IStorage {
       .where(eq(photos.itemId, id))
       .orderBy(asc(photos.position));
     
-    return { ...item, photos: itemPhotos };
+    let deletedByName: string | undefined;
+    if (item.deletedBy) {
+      const [deleter] = await db.select().from(users).where(eq(users.id, item.deletedBy));
+      if (deleter) deletedByName = deleter.name;
+    }
+    
+    return { ...item, photos: itemPhotos, deletedByName };
   }
 
-  async getAllItems(): Promise<ItemWithPhotos[]> {
-    const allItems = await db.select().from(items).orderBy(asc(items.number));
+  async getAllItems(includeDeleted: boolean = true): Promise<ItemWithPhotosAndDeleteInfo[]> {
+    // Order by: active items first (by number), then deleted items (by number)
+    const allItems = await db.execute(sql`
+      SELECT i.*, u.name as deleted_by_name
+      FROM items i
+      LEFT JOIN users u ON i.deleted_by = u.id
+      ORDER BY 
+        CASE WHEN i.deleted_at IS NULL THEN 0 ELSE 1 END,
+        i.number
+    `);
     
-    const result: ItemWithPhotos[] = [];
-    for (const item of allItems) {
+    const result: ItemWithPhotosAndDeleteInfo[] = [];
+    for (const row of allItems.rows) {
+      // Skip deleted items if not included
+      if (!includeDeleted && row.deleted_at) continue;
+      
       const itemPhotos = await db.select().from(photos)
-        .where(eq(photos.itemId, item.id))
+        .where(eq(photos.itemId, row.id as number))
         .orderBy(asc(photos.position));
-      result.push({ ...item, photos: itemPhotos });
+      
+      result.push({
+        id: row.id as number,
+        number: row.number as number,
+        title: row.title as string | null,
+        description: row.description as string | null,
+        createdBy: row.created_by as number,
+        createdAt: row.created_at ? new Date(row.created_at as string) : null,
+        deletedAt: row.deleted_at ? new Date(row.deleted_at as string) : null,
+        deletedBy: row.deleted_by as number | null,
+        photos: itemPhotos,
+        deletedByName: row.deleted_by_name as string | undefined
+      });
     }
     
     return result;
+  }
+
+  async softDeleteItem(id: number, deletedBy: number): Promise<ItemWithPhotos | undefined> {
+    const [updated] = await db.update(items)
+      .set({ deletedAt: new Date(), deletedBy })
+      .where(eq(items.id, id))
+      .returning();
+    
+    if (!updated) return undefined;
+    
+    const itemPhotos = await db.select().from(photos)
+      .where(eq(photos.itemId, id))
+      .orderBy(asc(photos.position));
+    
+    return { ...updated, photos: itemPhotos };
+  }
+
+  async restoreItem(id: number): Promise<ItemWithPhotos | undefined> {
+    const [updated] = await db.update(items)
+      .set({ deletedAt: null, deletedBy: null })
+      .where(eq(items.id, id))
+      .returning();
+    
+    if (!updated) return undefined;
+    
+    const itemPhotos = await db.select().from(photos)
+      .where(eq(photos.itemId, id))
+      .orderBy(asc(photos.position));
+    
+    return { ...updated, photos: itemPhotos };
   }
 
   async createItem(createdBy: number, photoData: string): Promise<ItemWithPhotos> {
@@ -335,7 +396,9 @@ export class DatabaseStorage implements IStorage {
         title: row.title as string | null,
         description: row.description as string | null,
         createdBy: row.created_by as number,
-        createdAt: new Date(row.created_at as string),
+        createdAt: row.created_at ? new Date(row.created_at as string) : null,
+        deletedAt: row.deleted_at ? new Date(row.deleted_at as string) : null,
+        deletedBy: row.deleted_by as number | null,
         photos: itemPhotos
       });
     }
@@ -367,7 +430,9 @@ export class DatabaseStorage implements IStorage {
         title: row.title as string | null,
         description: row.description as string | null,
         createdBy: row.created_by as number,
-        createdAt: new Date(row.created_at as string),
+        createdAt: row.created_at ? new Date(row.created_at as string) : null,
+        deletedAt: row.deleted_at ? new Date(row.deleted_at as string) : null,
+        deletedBy: row.deleted_by as number | null,
         photos: itemPhotos,
         userPreference: row.user_preference as "love" | "maybe" | "no"
       });

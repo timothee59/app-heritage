@@ -7,10 +7,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image, Heart, AlertTriangle, Users, HeartOff, PartyPopper, Eye, Trophy, Hand, X } from "lucide-react";
+import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image, Heart, AlertTriangle, Users, HeartOff, PartyPopper, Eye, Trophy, Hand, X, Trash2, EyeOff } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { User, ItemWithPhotos, ItemWithPhotosAndLovers, ItemWithUserPreference } from "@shared/schema";
+import type { User, ItemWithPhotos, ItemWithPhotosAndDeleteInfo, ItemWithPhotosAndLovers, ItemWithUserPreference } from "@shared/schema";
 
 type FilterType = "all" | "my-love" | "user-love" | "conflicts" | "to-review";
 
@@ -61,6 +63,7 @@ export default function GalleryPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [showDeleted, setShowDeleted] = useState(true);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -95,11 +98,11 @@ export default function GalleryPage() {
     if (filter === "user-love" && selectedUserId) return `/api/items?filter=user-preferences&userId=${selectedUserId}`;
     if (filter === "conflicts") return "/api/items?filter=conflicts";
     if (filter === "to-review") return "/api/items?filter=to-review";
-    return "/api/items";
+    return `/api/items?showDeleted=${showDeleted}`;
   };
 
-  const { data: items, isLoading: itemsLoading } = useQuery<(ItemWithPhotos | ItemWithPhotosAndLovers | ItemWithUserPreference)[]>({
-    queryKey: ["/api/items", filter, selectedUserId],
+  const { data: items, isLoading: itemsLoading } = useQuery<(ItemWithPhotosAndDeleteInfo | ItemWithPhotosAndLovers | ItemWithUserPreference)[]>({
+    queryKey: ["/api/items", filter, selectedUserId, showDeleted],
     queryFn: async () => {
       const response = await fetch(getQueryUrl(), {
         headers: currentUserId ? { "X-User-Id": currentUserId } : {},
@@ -109,6 +112,9 @@ export default function GalleryPage() {
     },
     enabled: filter !== "user-love" || !!selectedUserId,
   });
+
+  // Count deleted items
+  const deletedCount = items?.filter(item => "deletedAt" in item && item.deletedAt).length || 0;
 
   const createItemMutation = useMutation({
     mutationFn: async (photoData: string) => {
@@ -300,7 +306,7 @@ export default function GalleryPage() {
       </header>
 
       <main className="p-4">
-        <div className="flex flex-wrap gap-2 mb-4">
+        <div className="flex flex-wrap items-center gap-2 mb-4">
           <Button
             variant={filter === "all" ? "default" : "outline"}
             size="sm"
@@ -354,6 +360,26 @@ export default function GalleryPage() {
               </span>
             )}
           </Button>
+          
+          {filter === "all" && (
+            <div className="flex items-center gap-2 ml-auto">
+              <Switch
+                id="show-deleted"
+                checked={showDeleted}
+                onCheckedChange={setShowDeleted}
+                data-testid="toggle-show-deleted"
+              />
+              <Label htmlFor="show-deleted" className="flex items-center gap-1 text-sm cursor-pointer">
+                {showDeleted ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+                Supprimées
+                {deletedCount > 0 && (
+                  <span className="bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full text-xs">
+                    {deletedCount}
+                  </span>
+                )}
+              </Label>
+            </div>
+          )}
         </div>
 
         {filter === "user-love" && (
@@ -385,10 +411,11 @@ export default function GalleryPage() {
               const isConflictItem = "lovers" in item;
               const hasUserPreference = "userPreference" in item;
               const userPreference = hasUserPreference ? (item as ItemWithUserPreference).userPreference : null;
+              const isDeleted = "deletedAt" in item && item.deletedAt;
               return (
                 <Card 
                   key={item.id} 
-                  className={`overflow-hidden hover-elevate cursor-pointer ${isConflictItem ? "ring-2 ring-amber-500" : ""}`}
+                  className={`overflow-hidden hover-elevate cursor-pointer ${isConflictItem ? "ring-2 ring-amber-500" : ""} ${isDeleted ? "opacity-50" : ""}`}
                   onClick={() => setLocation(`/item/${item.id}`)}
                   data-testid={`card-item-${item.id}`}
                 >
@@ -397,7 +424,7 @@ export default function GalleryPage() {
                       <img
                         src={item.photos[0].data}
                         alt={`Fiche #${item.number}`}
-                        className="w-full h-full object-cover"
+                        className={`w-full h-full object-cover ${isDeleted ? "grayscale" : ""}`}
                       />
                     ) : (
                       <div className="w-full h-full bg-muted flex items-center justify-center">
@@ -405,11 +432,11 @@ export default function GalleryPage() {
                       </div>
                     )}
                     <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                      <span className="text-white font-medium text-sm">
+                      <span className={`text-white font-medium text-sm ${isDeleted ? "line-through" : ""}`}>
                         #{item.number}
                       </span>
                       {item.title && (
-                        <p className="text-white/80 text-xs truncate">
+                        <p className={`text-white/80 text-xs truncate ${isDeleted ? "line-through" : ""}`}>
                           {item.title}
                         </p>
                       )}
@@ -419,7 +446,7 @@ export default function GalleryPage() {
                         {(item as ItemWithPhotosAndLovers).lovers.join(" vs ")}
                       </div>
                     )}
-                    {userPreference && (
+                    {userPreference && !isDeleted && (
                       <div 
                         className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 dark:bg-black/70 flex items-center justify-center shadow-md"
                         data-testid={`preference-badge-${item.id}`}
@@ -427,6 +454,19 @@ export default function GalleryPage() {
                         {userPreference === "love" && <Heart className="w-5 h-5 text-red-500 fill-red-500" />}
                         {userPreference === "maybe" && <Hand className="w-5 h-5 text-orange-500" />}
                         {userPreference === "no" && <X className="w-5 h-5 text-gray-400" />}
+                      </div>
+                    )}
+                    {isDeleted && (
+                      <div 
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-red-500/80 flex items-center justify-center shadow-md"
+                        data-testid={`deleted-badge-${item.id}`}
+                      >
+                        <Trash2 className="w-5 h-5 text-white" />
+                      </div>
+                    )}
+                    {isDeleted && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="w-[120%] h-1 bg-red-500 rotate-[-15deg] shadow-sm" />
                       </div>
                     )}
                   </div>

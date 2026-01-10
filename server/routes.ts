@@ -66,6 +66,7 @@ export async function registerRoutes(
     try {
       const filter = req.query.filter as string | undefined;
       const filterUserId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+      const showDeleted = req.query.showDeleted !== "false"; // Par défaut: inclure les supprimées
       const currentUserId = parseInt(req.headers["x-user-id"] as string);
 
       // Filtre "my-love" : mes coups de cœur
@@ -104,8 +105,8 @@ export async function registerRoutes(
         return res.json(items);
       }
 
-      // Par défaut : toutes les fiches
-      const items = await storage.getAllItems();
+      // Par défaut : toutes les fiches (avec option pour masquer les supprimées)
+      const items = await storage.getAllItems(showDeleted);
       res.json(items);
     } catch (error) {
       res.status(500).json({ message: "Erreur lors de la récupération des fiches" });
@@ -164,6 +165,76 @@ export async function registerRoutes(
       res.json(updatedItem);
     } catch (error) {
       res.status(500).json({ message: "Erreur lors de la mise à jour de la fiche" });
+    }
+  });
+
+  // Supprimer une fiche (soft delete)
+  app.delete("/api/items/:id", async (req, res) => {
+    try {
+      const userId = parseInt(req.headers["x-user-id"] as string);
+      if (isNaN(userId)) {
+        return res.status(401).json({ message: "Utilisateur non identifié" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "Utilisateur non trouvé" });
+      }
+
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID invalide" });
+      }
+
+      // Check if item exists first
+      const existingItem = await storage.getItem(id);
+      if (!existingItem) {
+        return res.status(404).json({ message: "Fiche non trouvée" });
+      }
+
+      // Check if already deleted
+      if (existingItem.deletedAt) {
+        return res.status(400).json({ message: "Cette fiche est déjà supprimée" });
+      }
+
+      const deletedItem = await storage.softDeleteItem(id, userId);
+      res.json(deletedItem);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la suppression de la fiche" });
+    }
+  });
+
+  // Restaurer une fiche supprimée
+  app.patch("/api/items/:id/restore", async (req, res) => {
+    try {
+      const userId = parseInt(req.headers["x-user-id"] as string);
+      if (isNaN(userId)) {
+        return res.status(401).json({ message: "Utilisateur non identifié" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "Utilisateur non trouvé" });
+      }
+
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID invalide" });
+      }
+
+      // Check if item exists first
+      const existingItem = await storage.getItem(id);
+      if (!existingItem) {
+        return res.status(404).json({ message: "Fiche non trouvée" });
+      }
+
+      // Check if actually deleted
+      if (!existingItem.deletedAt) {
+        return res.status(400).json({ message: "Cette fiche n'est pas supprimée" });
+      }
+
+      const restoredItem = await storage.restoreItem(id);
+      res.json(restoredItem);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la restauration de la fiche" });
     }
   });
 

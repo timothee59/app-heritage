@@ -28,6 +28,8 @@ export const items = pgTable("items", {
   description: text("description"), // Description optionnelle
   createdBy: integer("created_by").notNull(), // ID de l'utilisateur qui a créé
   createdAt: timestamp("created_at").defaultNow(),
+  deletedAt: timestamp("deleted_at"), // Soft delete - date de suppression
+  deletedBy: integer("deleted_by"), // ID de l'utilisateur qui a supprimé
 });
 
 export const insertItemSchema = createInsertSchema(items).pick({
@@ -57,6 +59,9 @@ export type Photo = typeof photos.$inferSelect;
 
 // Type combiné pour une fiche avec ses photos
 export type ItemWithPhotos = Item & { photos: Photo[] };
+
+// Type avec infos de suppression (nom du supprimeur)
+export type ItemWithPhotosAndDeleteInfo = ItemWithPhotos & { deletedByName?: string };
 
 // Type pour les fiches en conflit (avec liste des personnes qui les veulent)
 export type ItemWithPhotosAndLovers = ItemWithPhotos & { lovers: string[]; loveCount: number };
