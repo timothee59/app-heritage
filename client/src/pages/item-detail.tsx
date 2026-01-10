@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Pencil, MessageSquare, Send, Heart, HelpCircle, Hand, AlertTriangle, Users } from "lucide-react";
+import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Pencil, MessageSquare, Send, Heart, HelpCircle, Hand, AlertTriangle, Users, ZoomIn, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import type { ItemWithPhotos, CommentWithUser, Preference, PreferenceWithUser, User } from "@shared/schema";
@@ -81,6 +81,9 @@ export default function ItemDetailPage() {
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [descriptionValue, setDescriptionValue] = useState("");
   const [newComment, setNewComment] = useState("");
+  const [showLightbox, setShowLightbox] = useState(false);
+  const [zoomLevel, setZoomLevel] = useState(1);
+  const [lastPinchDistance, setLastPinchDistance] = useState<number | null>(null);
   const titleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const descriptionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -521,6 +524,32 @@ export default function ItemDetailPage() {
     }
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 2) {
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      setLastPinchDistance(distance);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 2 && lastPinchDistance !== null) {
+      const distance = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const scale = distance / lastPinchDistance;
+      setZoomLevel((prev) => Math.max(0.5, Math.min(4, prev * scale)));
+      setLastPinchDistance(distance);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    setLastPinchDistance(null);
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background p-4">
@@ -637,15 +666,23 @@ export default function ItemDetailPage() {
             </button>
           )}
         </div>
-        <div className="relative aspect-square bg-muted rounded-lg overflow-hidden mb-4">
+        <div 
+          className="relative bg-muted rounded-lg overflow-hidden mb-4 cursor-pointer group max-h-[50vh] sm:max-h-[40vh] lg:max-h-[35vh]"
+          onClick={() => { setZoomLevel(1); setShowLightbox(true); }}
+          data-testid="photo-container"
+        >
           {currentPhoto && (
             <img
               src={currentPhoto.data}
               alt={`Photo ${currentPhotoIndex + 1} de la fiche #${item.number}`}
-              className="w-full h-full object-contain"
+              className="w-full h-full object-contain max-h-[50vh] sm:max-h-[40vh] lg:max-h-[35vh]"
               data-testid="img-current-photo"
             />
           )}
+          
+          <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
+            <ZoomIn className="w-10 h-10 text-white opacity-0 group-hover:opacity-80 transition-opacity" />
+          </div>
           
           {item.photos.length > 1 && (
             <>
@@ -653,7 +690,7 @@ export default function ItemDetailPage() {
                 variant="secondary"
                 size="icon"
                 className="absolute left-2 top-1/2 -translate-y-1/2 opacity-80"
-                onClick={goToPrevPhoto}
+                onClick={(e) => { e.stopPropagation(); goToPrevPhoto(); }}
                 data-testid="button-prev-photo"
               >
                 <ChevronLeft className="w-5 h-5" />
@@ -662,7 +699,7 @@ export default function ItemDetailPage() {
                 variant="secondary"
                 size="icon"
                 className="absolute right-2 top-1/2 -translate-y-1/2 opacity-80"
-                onClick={goToNextPhoto}
+                onClick={(e) => { e.stopPropagation(); goToNextPhoto(); }}
                 data-testid="button-next-photo"
               >
                 <ChevronRight className="w-5 h-5" />
@@ -676,6 +713,99 @@ export default function ItemDetailPage() {
             </>
           )}
         </div>
+
+        {showLightbox && currentPhoto && (
+          <div 
+            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+            onClick={() => setShowLightbox(false)}
+            data-testid="lightbox"
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="absolute top-4 right-4 text-white hover:bg-white/20"
+              onClick={() => setShowLightbox(false)}
+              data-testid="button-close-lightbox"
+            >
+              <X className="w-6 h-6" />
+            </Button>
+            
+            {item.photos.length > 1 && (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20"
+                  onClick={(e) => { e.stopPropagation(); goToPrevPhoto(); }}
+                  data-testid="button-lightbox-prev"
+                >
+                  <ChevronLeft className="w-8 h-8" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20"
+                  onClick={(e) => { e.stopPropagation(); goToNextPhoto(); }}
+                  data-testid="button-lightbox-next"
+                >
+                  <ChevronRight className="w-8 h-8" />
+                </Button>
+              </>
+            )}
+            
+            <div 
+              className="max-w-[90vw] max-h-[90vh] overflow-auto touch-none"
+              onClick={(e) => e.stopPropagation()}
+              onWheel={(e) => {
+                e.preventDefault();
+                const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                setZoomLevel((prev) => Math.max(0.5, Math.min(4, prev + delta)));
+              }}
+              onTouchStart={handleTouchStart}
+              onTouchMove={handleTouchMove}
+              onTouchEnd={handleTouchEnd}
+            >
+              <img
+                src={currentPhoto.data}
+                alt={`Photo ${currentPhotoIndex + 1} de la fiche #${item.number}`}
+                className="transition-transform duration-200 select-none"
+                style={{ transform: `scale(${zoomLevel})`, transformOrigin: "center center" }}
+                draggable={false}
+                data-testid="img-lightbox"
+              />
+            </div>
+            
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-white/20"
+                onClick={(e) => { e.stopPropagation(); setZoomLevel((prev) => Math.max(0.5, prev - 0.25)); }}
+                data-testid="button-zoom-out"
+              >
+                -
+              </Button>
+              <span className="text-white text-sm">{Math.round(zoomLevel * 100)}%</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-white hover:bg-white/20"
+                onClick={(e) => { e.stopPropagation(); setZoomLevel((prev) => Math.min(4, prev + 0.25)); }}
+                data-testid="button-zoom-in"
+              >
+                +
+              </Button>
+            </div>
+            
+            {item.photos.length > 1 && (
+              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 px-3 py-1 rounded-full">
+                <span className="text-white text-sm">
+                  {currentPhotoIndex + 1} / {item.photos.length}
+                </span>
+              </div>
+            )}
+          </div>
+        )}
 
         {item.photos.length > 1 && (
           <div className="flex justify-center gap-2 mb-4">
