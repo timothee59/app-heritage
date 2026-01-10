@@ -122,11 +122,21 @@ export default function ItemDetailPage() {
 
   const { data: allPreferences = [], isLoading: isLoadingAllPreferences } = useQuery<PreferenceWithUser[]>({
     queryKey: ["/api/items", itemId, "preferences"],
+    queryFn: async () => {
+      const response = await fetch(`/api/items/${itemId}/preferences`);
+      if (!response.ok) return [];
+      return await response.json();
+    },
     enabled: itemId > 0,
   });
 
   const { data: allUsers = [] } = useQuery<User[]>({
     queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) return [];
+      return await response.json();
+    },
   });
 
   // Synchroniser titleValue et descriptionValue quand item change
