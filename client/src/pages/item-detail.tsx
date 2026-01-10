@@ -369,6 +369,7 @@ export default function ItemDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/items", itemId, "preferences", "me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", itemId, "comments"] });
       toast({
         title: "Préférence enregistrée !",
       });

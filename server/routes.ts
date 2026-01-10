@@ -437,7 +437,29 @@ export async function registerRoutes(
         return res.status(400).json({ message: "Données invalides", errors: result.error.errors });
       }
 
+      // Vérifier si la préférence a changé
+      const existingPreference = await storage.getPreferenceByItemAndUser(itemId, userId);
+      const hasChanged = !existingPreference || existingPreference.level !== result.data.level;
+
       const preference = await storage.upsertPreference(itemId, userId, result.data.level);
+
+      // Ajouter un commentaire automatique si la préférence a changé
+      if (hasChanged) {
+        let commentText = "";
+        switch (result.data.level) {
+          case "love":
+            commentText = `${user.name} a un coup de cœur !`;
+            break;
+          case "maybe":
+            commentText = `${user.name} le veut bien si personne d'autre.`;
+            break;
+          case "no":
+            commentText = `${user.name} n'en veut pas.`;
+            break;
+        }
+        await storage.createComment(itemId, userId, commentText);
+      }
+
       res.status(200).json(preference);
     } catch (error) {
       res.status(500).json({ message: "Erreur lors de l'enregistrement de la préférence" });
