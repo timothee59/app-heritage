@@ -58,6 +58,9 @@ export type Photo = typeof photos.$inferSelect;
 // Type combiné pour une fiche avec ses photos
 export type ItemWithPhotos = Item & { photos: Photo[] };
 
+// Type pour les fiches en conflit (avec liste des personnes qui les veulent)
+export type ItemWithPhotosAndLovers = ItemWithPhotos & { lovers: string[]; loveCount: number };
+
 // Commentaires sur les fiches
 export const comments = pgTable("comments", {
   id: serial("id").primaryKey(),

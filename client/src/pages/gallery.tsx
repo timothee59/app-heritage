@@ -5,11 +5,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image } from "lucide-react";
+import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image, Heart, AlertTriangle, Users, HeartOff, PartyPopper } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { User, ItemWithPhotos } from "@shared/schema";
+import type { User, ItemWithPhotos, ItemWithPhotosAndLovers } from "@shared/schema";
+
+type FilterType = "all" | "my-love" | "user-love" | "conflicts";
 
 const MAX_WIDTH = 1200;
 const MAX_HEIGHT = 1200;
@@ -56,6 +59,8 @@ export default function GalleryPage() {
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [filter, setFilter] = useState<FilterType>("all");
+  const [selectedUserId, setSelectedUserId] = useState<string>("");
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -75,8 +80,33 @@ export default function GalleryPage() {
     enabled: !!currentUserId,
   });
 
-  const { data: items, isLoading: itemsLoading } = useQuery<ItemWithPhotos[]>({
-    queryKey: ["/api/items"],
+  const { data: allUsers = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
+    queryFn: async () => {
+      const response = await fetch("/api/users");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+
+  // Build query params based on filter
+  const getQueryUrl = () => {
+    if (filter === "my-love") return "/api/items?filter=my-love";
+    if (filter === "user-love" && selectedUserId) return `/api/items?filter=user-love&userId=${selectedUserId}`;
+    if (filter === "conflicts") return "/api/items?filter=conflicts";
+    return "/api/items";
+  };
+
+  const { data: items, isLoading: itemsLoading } = useQuery<(ItemWithPhotos | ItemWithPhotosAndLovers)[]>({
+    queryKey: ["/api/items", filter, selectedUserId],
+    queryFn: async () => {
+      const response = await fetch(getQueryUrl(), {
+        headers: currentUserId ? { "X-User-Id": currentUserId } : {},
+      });
+      if (!response.ok) return [];
+      return await response.json();
+    },
+    enabled: filter !== "user-love" || !!selectedUserId,
   });
 
   const createItemMutation = useMutation({
@@ -269,6 +299,64 @@ export default function GalleryPage() {
       </header>
 
       <main className="p-4">
+        <div className="flex flex-wrap gap-2 mb-4">
+          <Button
+            variant={filter === "all" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter("all")}
+            data-testid="filter-all"
+          >
+            Tous
+          </Button>
+          <Button
+            variant={filter === "my-love" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter("my-love")}
+            className="gap-1"
+            data-testid="filter-my-love"
+          >
+            <Heart className="w-4 h-4" />
+            Mes coups de cœur
+          </Button>
+          <Button
+            variant={filter === "conflicts" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter("conflicts")}
+            className="gap-1"
+            data-testid="filter-conflicts"
+          >
+            <AlertTriangle className="w-4 h-4" />
+            Conflits
+          </Button>
+          <Button
+            variant={filter === "user-love" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setFilter("user-love")}
+            className="gap-1"
+            data-testid="filter-user-love"
+          >
+            <Users className="w-4 h-4" />
+            Par personne
+          </Button>
+        </div>
+
+        {filter === "user-love" && (
+          <div className="mb-4">
+            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+              <SelectTrigger className="w-full max-w-xs" data-testid="select-user">
+                <SelectValue placeholder="Choisir une personne..." />
+              </SelectTrigger>
+              <SelectContent>
+                {allUsers.map((user) => (
+                  <SelectItem key={user.id} value={user.id.toString()} data-testid={`select-user-${user.id}`}>
+                    {user.name} ({user.role})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         {itemsLoading ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
@@ -277,39 +365,98 @@ export default function GalleryPage() {
           </div>
         ) : items && items.length > 0 ? (
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {items.map((item) => (
-              <Card 
-                key={item.id} 
-                className="overflow-hidden hover-elevate cursor-pointer"
-                onClick={() => setLocation(`/item/${item.id}`)}
-                data-testid={`card-item-${item.id}`}
-              >
-                <div className="aspect-square relative">
-                  {item.photos[0] ? (
-                    <img
-                      src={item.photos[0].data}
-                      alt={`Fiche #${item.number}`}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-muted flex items-center justify-center">
-                      <Package className="w-8 h-8 text-muted-foreground" />
+            {items.map((item) => {
+              const isConflictItem = "lovers" in item;
+              return (
+                <Card 
+                  key={item.id} 
+                  className={`overflow-hidden hover-elevate cursor-pointer ${isConflictItem ? "ring-2 ring-amber-500" : ""}`}
+                  onClick={() => setLocation(`/item/${item.id}`)}
+                  data-testid={`card-item-${item.id}`}
+                >
+                  <div className="aspect-square relative">
+                    {item.photos[0] ? (
+                      <img
+                        src={item.photos[0].data}
+                        alt={`Fiche #${item.number}`}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-muted flex items-center justify-center">
+                        <Package className="w-8 h-8 text-muted-foreground" />
+                      </div>
+                    )}
+                    <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
+                      <span className="text-white font-medium text-sm">
+                        #{item.number}
+                      </span>
+                      {item.title && (
+                        <p className="text-white/80 text-xs truncate">
+                          {item.title}
+                        </p>
+                      )}
                     </div>
-                  )}
-                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-2">
-                    <span className="text-white font-medium text-sm">
-                      #{item.number}
-                    </span>
-                    {item.title && (
-                      <p className="text-white/80 text-xs truncate">
-                        {item.title}
-                      </p>
+                    {isConflictItem && (
+                      <div className="absolute top-0 left-0 right-0 bg-amber-500 text-white text-xs p-1 text-center font-medium" data-testid={`conflict-badge-${item.id}`}>
+                        {(item as ItemWithPhotosAndLovers).lovers.join(" vs ")}
+                      </div>
                     )}
                   </div>
-                </div>
-              </Card>
-            ))}
+                </Card>
+              );
+            })}
           </div>
+        ) : filter === "my-love" ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <HeartOff className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h2 className="text-lg font-medium mb-2">Pas encore de coup de cœur</h2>
+              <p className="text-muted-foreground mb-4">
+                Parcourez les fiches et marquez celles qui vous plaisent !
+              </p>
+              <Button variant="outline" onClick={() => setFilter("all")}>
+                Voir tous les objets
+              </Button>
+            </CardContent>
+          </Card>
+        ) : filter === "conflicts" ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <PartyPopper className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h2 className="text-lg font-medium mb-2">Aucun conflit !</h2>
+              <p className="text-muted-foreground mb-4">
+                La famille est en harmonie. Personne ne veut le même objet.
+              </p>
+            </CardContent>
+          </Card>
+        ) : filter === "user-love" && selectedUserId ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Heart className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h2 className="text-lg font-medium mb-2">Pas de coup de cœur</h2>
+              <p className="text-muted-foreground mb-4">
+                Cette personne n'a pas encore marqué d'objets.
+              </p>
+            </CardContent>
+          </Card>
+        ) : filter === "user-love" && !selectedUserId ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <div className="mx-auto w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                <Users className="w-8 h-8 text-muted-foreground" />
+              </div>
+              <h2 className="text-lg font-medium mb-2">Choisissez une personne</h2>
+              <p className="text-muted-foreground">
+                Sélectionnez un membre de la famille pour voir ses coups de cœur.
+              </p>
+            </CardContent>
+          </Card>
         ) : (
           <Card>
             <CardContent className="py-12 text-center">

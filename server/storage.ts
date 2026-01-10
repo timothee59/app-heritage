@@ -1,6 +1,6 @@
-import { type User, type InsertUser, type Item, type Photo, type ItemWithPhotos, type Comment, type CommentWithUser, type Preference, type PreferenceWithUser, users, items, photos, comments, preferences } from "@shared/schema";
+import { type User, type InsertUser, type Item, type Photo, type ItemWithPhotos, type ItemWithPhotosAndLovers, type Comment, type CommentWithUser, type Preference, type PreferenceWithUser, users, items, photos, comments, preferences } from "@shared/schema";
 import { db } from "./db";
-import { eq, asc, desc, max, and } from "drizzle-orm";
+import { eq, asc, desc, max, and, sql, inArray } from "drizzle-orm";
 
 // Interface de stockage pour les opérations CRUD
 export interface IStorage {
@@ -33,6 +33,10 @@ export interface IStorage {
   getPreferenceByItemAndUser(itemId: number, userId: number): Promise<Preference | undefined>;
   getPreferencesByItemId(itemId: number): Promise<PreferenceWithUser[]>;
   upsertPreference(itemId: number, userId: number, level: string): Promise<Preference>;
+  
+  // Filtered queries
+  getItemsByUserPreference(userId: number, level: string): Promise<ItemWithPhotos[]>;
+  getItemsWithConflicts(): Promise<ItemWithPhotosAndLovers[]>;
 }
 
 // DatabaseStorage - Utilise PostgreSQL via Drizzle ORM
@@ -241,6 +245,67 @@ export class DatabaseStorage implements IStorage {
       }).returning();
       return created;
     }
+  }
+
+  // Filtered queries
+  async getItemsByUserPreference(userId: number, level: string): Promise<ItemWithPhotos[]> {
+    // Get item IDs where user has this preference level
+    const userPrefs = await db.select({ itemId: preferences.itemId })
+      .from(preferences)
+      .where(and(eq(preferences.userId, userId), eq(preferences.level, level)));
+    
+    if (userPrefs.length === 0) return [];
+    
+    const itemIds = userPrefs.map(p => p.itemId);
+    const matchingItems = await db.select().from(items)
+      .where(inArray(items.id, itemIds))
+      .orderBy(asc(items.number));
+    
+    const result: ItemWithPhotos[] = [];
+    for (const item of matchingItems) {
+      const itemPhotos = await db.select().from(photos)
+        .where(eq(photos.itemId, item.id))
+        .orderBy(asc(photos.position));
+      result.push({ ...item, photos: itemPhotos });
+    }
+    
+    return result;
+  }
+
+  async getItemsWithConflicts(): Promise<ItemWithPhotosAndLovers[]> {
+    // Get items with 2+ love preferences
+    const conflictItems = await db.execute(sql`
+      SELECT 
+        i.id,
+        COUNT(p.id) as love_count,
+        ARRAY_AGG(u.name ORDER BY u.name) as lovers
+      FROM items i
+      JOIN preferences p ON i.id = p.item_id AND p.level = 'love'
+      JOIN users u ON p.user_id = u.id
+      GROUP BY i.id
+      HAVING COUNT(p.id) >= 2
+      ORDER BY love_count DESC, i.number
+    `);
+    
+    if (conflictItems.rows.length === 0) return [];
+    
+    const result: ItemWithPhotosAndLovers[] = [];
+    for (const row of conflictItems.rows) {
+      const itemId = row.id as number;
+      const loveCount = Number(row.love_count);
+      const lovers = row.lovers as string[];
+      
+      const [item] = await db.select().from(items).where(eq(items.id, itemId));
+      if (!item) continue;
+      
+      const itemPhotos = await db.select().from(photos)
+        .where(eq(photos.itemId, itemId))
+        .orderBy(asc(photos.position));
+      
+      result.push({ ...item, photos: itemPhotos, lovers, loveCount });
+    }
+    
+    return result;
   }
 }
 

@@ -61,9 +61,35 @@ export async function registerRoutes(
     }
   });
 
-  // Récupérer tous les items (fiches)
-  app.get("/api/items", async (_req, res) => {
+  // Récupérer tous les items (fiches) avec filtres optionnels
+  app.get("/api/items", async (req, res) => {
     try {
+      const filter = req.query.filter as string | undefined;
+      const filterUserId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+      const currentUserId = parseInt(req.headers["x-user-id"] as string);
+
+      // Filtre "my-love" : mes coups de cœur
+      if (filter === "my-love") {
+        if (isNaN(currentUserId)) {
+          return res.status(401).json({ message: "Utilisateur non identifié" });
+        }
+        const items = await storage.getItemsByUserPreference(currentUserId, "love");
+        return res.json(items);
+      }
+
+      // Filtre "user-love" : coups de cœur d'un autre utilisateur
+      if (filter === "user-love" && filterUserId) {
+        const items = await storage.getItemsByUserPreference(filterUserId, "love");
+        return res.json(items);
+      }
+
+      // Filtre "conflicts" : fiches avec 2+ coups de cœur
+      if (filter === "conflicts") {
+        const items = await storage.getItemsWithConflicts();
+        return res.json(items);
+      }
+
+      // Par défaut : toutes les fiches
       const items = await storage.getAllItems();
       res.json(items);
     } catch (error) {
