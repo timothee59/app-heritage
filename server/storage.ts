@@ -105,7 +105,7 @@ export class MemStorage implements IStorage {
 
   async getAllItems(): Promise<ItemWithPhotos[]> {
     const allItems = Array.from(this.items.values())
-      .sort((a, b) => b.number - a.number); // Plus récents en premier
+      .sort((a, b) => a.number - b.number); // Plus anciens en premier (ordre croissant)
     
     return allItems.map(item => {
       const itemPhotos = Array.from(this.photos.values())
