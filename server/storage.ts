@@ -216,7 +216,7 @@ export class DatabaseStorage implements IStorage {
       if (user) {
         result.push({
           ...pref,
-          user: { id: user.id, name: user.name }
+          user: { id: user.id, name: user.name, role: user.role }
         });
       }
     }

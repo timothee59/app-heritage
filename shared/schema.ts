@@ -102,4 +102,4 @@ export type InsertPreference = z.infer<typeof insertPreferenceSchema>;
 export type Preference = typeof preferences.$inferSelect;
 
 // Type combiné pour une préférence avec l'utilisateur
-export type PreferenceWithUser = Preference & { user: { id: number; name: string } };
+export type PreferenceWithUser = Preference & { user: { id: number; name: string; role: string } };

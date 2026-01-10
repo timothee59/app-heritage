@@ -7,10 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Pencil, MessageSquare, Send, Heart, HelpCircle, Hand } from "lucide-react";
+import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Pencil, MessageSquare, Send, Heart, HelpCircle, Hand, AlertTriangle, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import type { ItemWithPhotos, CommentWithUser, Preference } from "@shared/schema";
+import type { ItemWithPhotos, CommentWithUser, Preference, PreferenceWithUser, User } from "@shared/schema";
 
 function formatCommentDate(dateString: string): string {
   const date = new Date(dateString);
@@ -118,6 +118,15 @@ export default function ItemDetailPage() {
       return await response.json();
     },
     enabled: itemId > 0 && !!currentUserId,
+  });
+
+  const { data: allPreferences = [], isLoading: isLoadingAllPreferences } = useQuery<PreferenceWithUser[]>({
+    queryKey: ["/api/items", itemId, "preferences"],
+    enabled: itemId > 0,
+  });
+
+  const { data: allUsers = [] } = useQuery<User[]>({
+    queryKey: ["/api/users"],
   });
 
   // Synchroniser titleValue et descriptionValue quand item change
@@ -369,6 +378,7 @@ export default function ItemDetailPage() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/items", itemId, "preferences", "me"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/items", itemId, "preferences"] });
       queryClient.invalidateQueries({ queryKey: ["/api/items", itemId, "comments"] });
       toast({
         title: "Préférence enregistrée !",
@@ -812,6 +822,85 @@ export default function ItemDetailPage() {
                 <Hand className={`w-6 h-6 mb-1 ${myPreference?.level === "no" ? "text-gray-600" : "text-gray-400"}`} />
                 <span className="text-xs text-center">Pas intéressé</span>
               </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Users className="w-5 h-5" />
+            <h2 className="text-lg font-semibold">Qui veut quoi ?</h2>
+          </div>
+
+          {isLoadingAllPreferences ? (
+            <div className="space-y-2">
+              <Skeleton className="h-8 w-full" />
+              <Skeleton className="h-8 w-full" />
+            </div>
+          ) : (
+            <div className="space-y-3" data-testid="section-who-wants-what">
+              {(() => {
+                const grouped = {
+                  love: allPreferences.filter(p => p.level === "love"),
+                  maybe: allPreferences.filter(p => p.level === "maybe"),
+                  no: allPreferences.filter(p => p.level === "no"),
+                };
+                const usersWithPreference = allPreferences.map(p => p.userId);
+                const notSeen = allUsers.filter(u => !usersWithPreference.includes(u.id));
+                const hasConflict = grouped.love.length > 1;
+
+                return (
+                  <>
+                    {grouped.love.length > 0 && (
+                      <div className="flex items-center gap-3" data-testid="prefs-love">
+                        <Heart className="w-5 h-5 text-red-500 fill-red-500 flex-shrink-0" />
+                        <span className="font-semibold">
+                          {grouped.love.map(p => p.user.name).join(", ")}
+                        </span>
+                      </div>
+                    )}
+                    {grouped.maybe.length > 0 && (
+                      <div className="flex items-center gap-3" data-testid="prefs-maybe">
+                        <HelpCircle className="w-5 h-5 text-orange-500 flex-shrink-0" />
+                        <span>
+                          {grouped.maybe.map(p => p.user.name).join(", ")}
+                        </span>
+                      </div>
+                    )}
+                    {grouped.no.length > 0 && (
+                      <div className="flex items-center gap-3" data-testid="prefs-no">
+                        <Hand className="w-5 h-5 text-gray-500 flex-shrink-0" />
+                        <span className="text-muted-foreground">
+                          {grouped.no.map(p => p.user.name).join(", ")}
+                        </span>
+                      </div>
+                    )}
+                    {notSeen.length > 0 && (
+                      <div className="flex items-center gap-3" data-testid="prefs-not-seen">
+                        <span className="w-5 h-5 flex items-center justify-center text-muted-foreground flex-shrink-0">?</span>
+                        <span className="text-muted-foreground italic">
+                          {notSeen.map(u => u.name).join(", ")}
+                        </span>
+                      </div>
+                    )}
+                    {hasConflict && (
+                      <Card className="border-amber-500 bg-amber-50 dark:bg-amber-950" data-testid="conflict-warning">
+                        <CardContent className="py-3 flex items-center gap-3">
+                          <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
+                          <span className="font-semibold text-amber-800 dark:text-amber-200">
+                            {grouped.love.length} personnes veulent cet objet !
+                          </span>
+                        </CardContent>
+                      </Card>
+                    )}
+                    {allPreferences.length === 0 && notSeen.length === 0 && (
+                      <p className="text-muted-foreground text-center py-4">
+                        Personne n'a encore donné son avis.
+                      </p>
+                    )}
+                  </>
+                );
+              })()}
             </div>
           )}
         </div>
