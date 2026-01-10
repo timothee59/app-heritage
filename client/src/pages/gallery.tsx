@@ -7,10 +7,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image, Heart, AlertTriangle, Users, HeartOff, PartyPopper, Eye, Trophy } from "lucide-react";
+import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image, Heart, AlertTriangle, Users, HeartOff, PartyPopper, Eye, Trophy, Hand, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { User, ItemWithPhotos, ItemWithPhotosAndLovers } from "@shared/schema";
+import type { User, ItemWithPhotos, ItemWithPhotosAndLovers, ItemWithUserPreference } from "@shared/schema";
 
 type FilterType = "all" | "my-love" | "user-love" | "conflicts" | "to-review";
 
@@ -92,13 +92,13 @@ export default function GalleryPage() {
   // Build query params based on filter
   const getQueryUrl = () => {
     if (filter === "my-love") return "/api/items?filter=my-love";
-    if (filter === "user-love" && selectedUserId) return `/api/items?filter=user-love&userId=${selectedUserId}`;
+    if (filter === "user-love" && selectedUserId) return `/api/items?filter=user-preferences&userId=${selectedUserId}`;
     if (filter === "conflicts") return "/api/items?filter=conflicts";
     if (filter === "to-review") return "/api/items?filter=to-review";
     return "/api/items";
   };
 
-  const { data: items, isLoading: itemsLoading } = useQuery<(ItemWithPhotos | ItemWithPhotosAndLovers)[]>({
+  const { data: items, isLoading: itemsLoading } = useQuery<(ItemWithPhotos | ItemWithPhotosAndLovers | ItemWithUserPreference)[]>({
     queryKey: ["/api/items", filter, selectedUserId],
     queryFn: async () => {
       const response = await fetch(getQueryUrl(), {
@@ -383,6 +383,8 @@ export default function GalleryPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
             {items.map((item) => {
               const isConflictItem = "lovers" in item;
+              const hasUserPreference = "userPreference" in item;
+              const userPreference = hasUserPreference ? (item as ItemWithUserPreference).userPreference : null;
               return (
                 <Card 
                   key={item.id} 
@@ -415,6 +417,16 @@ export default function GalleryPage() {
                     {isConflictItem && (
                       <div className="absolute top-0 left-0 right-0 bg-amber-500 text-white text-xs p-1 text-center font-medium" data-testid={`conflict-badge-${item.id}`}>
                         {(item as ItemWithPhotosAndLovers).lovers.join(" vs ")}
+                      </div>
+                    )}
+                    {userPreference && (
+                      <div 
+                        className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 dark:bg-black/70 flex items-center justify-center shadow-md"
+                        data-testid={`preference-badge-${item.id}`}
+                      >
+                        {userPreference === "love" && <Heart className="w-5 h-5 text-red-500 fill-red-500" />}
+                        {userPreference === "maybe" && <Hand className="w-5 h-5 text-orange-500" />}
+                        {userPreference === "no" && <X className="w-5 h-5 text-gray-400" />}
                       </div>
                     )}
                   </div>

@@ -61,6 +61,9 @@ export type ItemWithPhotos = Item & { photos: Photo[] };
 // Type pour les fiches en conflit (avec liste des personnes qui les veulent)
 export type ItemWithPhotosAndLovers = ItemWithPhotos & { lovers: string[]; loveCount: number };
 
+// Type pour les fiches avec la préférence d'un utilisateur spécifique
+export type ItemWithUserPreference = ItemWithPhotos & { userPreference: "love" | "maybe" | "no" };
+
 // Commentaires sur les fiches
 export const comments = pgTable("comments", {
   id: serial("id").primaryKey(),

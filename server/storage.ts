@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Item, type Photo, type ItemWithPhotos, type ItemWithPhotosAndLovers, type Comment, type CommentWithUser, type Preference, type PreferenceWithUser, users, items, photos, comments, preferences } from "@shared/schema";
+import { type User, type InsertUser, type Item, type Photo, type ItemWithPhotos, type ItemWithPhotosAndLovers, type ItemWithUserPreference, type Comment, type CommentWithUser, type Preference, type PreferenceWithUser, users, items, photos, comments, preferences } from "@shared/schema";
 import { db } from "./db";
 import { eq, asc, desc, max, and, sql, inArray } from "drizzle-orm";
 
@@ -38,6 +38,7 @@ export interface IStorage {
   getItemsByUserPreference(userId: number, level: string): Promise<ItemWithPhotos[]>;
   getItemsWithConflicts(): Promise<ItemWithPhotosAndLovers[]>;
   getItemsWithoutPreference(userId: number): Promise<ItemWithPhotos[]>;
+  getItemsByUserAllPreferences(userId: number): Promise<ItemWithUserPreference[]>;
 }
 
 // DatabaseStorage - Utilise PostgreSQL via Drizzle ORM
@@ -336,6 +337,39 @@ export class DatabaseStorage implements IStorage {
         createdBy: row.created_by as number,
         createdAt: new Date(row.created_at as string),
         photos: itemPhotos
+      });
+    }
+    
+    return result;
+  }
+
+  async getItemsByUserAllPreferences(userId: number): Promise<ItemWithUserPreference[]> {
+    // Get all items where user has ANY preference (love, maybe, or no)
+    const itemsWithPrefs = await db.execute(sql`
+      SELECT i.*, p.level as user_preference
+      FROM items i
+      JOIN preferences p ON i.id = p.item_id AND p.user_id = ${userId}
+      ORDER BY i.number
+    `);
+    
+    if (itemsWithPrefs.rows.length === 0) return [];
+    
+    const result: ItemWithUserPreference[] = [];
+    for (const row of itemsWithPrefs.rows) {
+      const itemId = row.id as number;
+      const itemPhotos = await db.select().from(photos)
+        .where(eq(photos.itemId, itemId))
+        .orderBy(asc(photos.position));
+      
+      result.push({
+        id: row.id as number,
+        number: row.number as number,
+        title: row.title as string | null,
+        description: row.description as string | null,
+        createdBy: row.created_by as number,
+        createdAt: new Date(row.created_at as string),
+        photos: itemPhotos,
+        userPreference: row.user_preference as "love" | "maybe" | "no"
       });
     }
     

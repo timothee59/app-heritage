@@ -83,6 +83,12 @@ export async function registerRoutes(
         return res.json(items);
       }
 
+      // Filtre "user-preferences" : tous les avis d'un utilisateur avec indicateurs
+      if (filter === "user-preferences" && filterUserId) {
+        const items = await storage.getItemsByUserAllPreferences(filterUserId);
+        return res.json(items);
+      }
+
       // Filtre "conflicts" : fiches avec 2+ coups de cœur
       if (filter === "conflicts") {
         const items = await storage.getItemsWithConflicts();
