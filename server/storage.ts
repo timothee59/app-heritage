@@ -1,4 +1,4 @@
-import { type User, type InsertUser, type Item, type Photo, type ItemWithPhotos, users, items, photos } from "@shared/schema";
+import { type User, type InsertUser, type Item, type Photo, type ItemWithPhotos, type Comment, type CommentWithUser, users, items, photos, comments } from "@shared/schema";
 import { db } from "./db";
 import { eq, asc, desc, max } from "drizzle-orm";
 
@@ -23,6 +23,11 @@ export interface IStorage {
   getPhotosByItemId(itemId: number): Promise<Photo[]>;
   getNextPhotoPosition(itemId: number): Promise<number>;
   reorderPhotos(itemId: number, photoIds: number[]): Promise<void>;
+  
+  // Comments
+  getCommentsByItemId(itemId: number): Promise<CommentWithUser[]>;
+  createComment(itemId: number, userId: number, text: string): Promise<CommentWithUser>;
+  deleteComment(commentId: number, userId: number): Promise<boolean>;
 }
 
 // DatabaseStorage - Utilise PostgreSQL via Drizzle ORM
@@ -142,6 +147,51 @@ export class DatabaseStorage implements IStorage {
         .set({ position: i })
         .where(eq(photos.id, photoIds[i]));
     }
+  }
+
+  // Comments
+  async getCommentsByItemId(itemId: number): Promise<CommentWithUser[]> {
+    const itemComments = await db.select().from(comments)
+      .where(eq(comments.itemId, itemId))
+      .orderBy(asc(comments.createdAt));
+    
+    const result: CommentWithUser[] = [];
+    for (const comment of itemComments) {
+      const [user] = await db.select().from(users).where(eq(users.id, comment.userId));
+      if (user) {
+        result.push({
+          ...comment,
+          user: { id: user.id, name: user.name }
+        });
+      }
+    }
+    
+    return result;
+  }
+
+  async createComment(itemId: number, userId: number, text: string): Promise<CommentWithUser> {
+    const [comment] = await db.insert(comments).values({
+      itemId,
+      userId,
+      text,
+    }).returning();
+    
+    const [user] = await db.select().from(users).where(eq(users.id, userId));
+    
+    return {
+      ...comment,
+      user: { id: user.id, name: user.name }
+    };
+  }
+
+  async deleteComment(commentId: number, userId: number): Promise<boolean> {
+    const [comment] = await db.select().from(comments).where(eq(comments.id, commentId));
+    if (!comment || comment.userId !== userId) {
+      return false;
+    }
+    
+    const result = await db.delete(comments).where(eq(comments.id, commentId)).returning();
+    return result.length > 0;
   }
 }
 

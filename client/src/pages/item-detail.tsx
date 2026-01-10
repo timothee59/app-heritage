@@ -1,16 +1,32 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Pencil } from "lucide-react";
+import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Pencil, MessageSquare, Send } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
-import type { ItemWithPhotos } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import type { ItemWithPhotos, CommentWithUser } from "@shared/schema";
+
+function formatCommentDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  if (diffDays === 0) return "Aujourd'hui";
+  if (diffDays === 1) return "Hier";
+  if (diffDays < 7) return `Il y a ${diffDays} jours`;
+  
+  return date.toLocaleDateString('fr-FR', {
+    day: 'numeric',
+    month: 'long'
+  });
+}
 
 const MAX_WIDTH = 1200;
 const MAX_HEIGHT = 1200;
@@ -64,6 +80,7 @@ export default function ItemDetailPage() {
   const [titleValue, setTitleValue] = useState("");
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [descriptionValue, setDescriptionValue] = useState("");
+  const [newComment, setNewComment] = useState("");
   const titleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const descriptionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -71,7 +88,6 @@ export default function ItemDetailPage() {
   const titleInputRef = useRef<HTMLInputElement>(null);
   const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
   const { toast } = useToast();
-  const queryClient = useQueryClient();
 
   useEffect(() => {
     const storedUserId = localStorage.getItem("user_id");
@@ -84,6 +100,11 @@ export default function ItemDetailPage() {
 
   const { data: item, isLoading } = useQuery<ItemWithPhotos>({
     queryKey: ["/api/items", itemId],
+    enabled: itemId > 0,
+  });
+
+  const { data: comments = [], isLoading: isLoadingComments } = useQuery<CommentWithUser[]>({
+    queryKey: ["/api/items", itemId, "comments"],
     enabled: itemId > 0,
   });
 
@@ -268,6 +289,64 @@ export default function ItemDetailPage() {
       });
     },
   });
+
+  const addCommentMutation = useMutation({
+    mutationFn: async (text: string) => {
+      const response = await apiRequest("POST", `/api/items/${itemId}/comments`, { text }, {
+        "X-User-Id": currentUserId || "",
+      });
+      return await response.json() as CommentWithUser;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items", itemId, "comments"] });
+      setNewComment("");
+      toast({
+        title: "Commentaire ajouté !",
+        description: "Votre souvenir a été partagé.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible d'ajouter le commentaire.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId: number) => {
+      await apiRequest("DELETE", `/api/items/${itemId}/comments/${commentId}`, undefined, {
+        "X-User-Id": currentUserId || "",
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/items", itemId, "comments"] });
+      toast({
+        title: "Commentaire supprimé",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de supprimer le commentaire.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleAddComment = () => {
+    const trimmed = newComment.trim();
+    if (!trimmed) return;
+    addCommentMutation.mutate(trimmed);
+  };
+
+  const handleCommentKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      handleAddComment();
+    }
+  };
 
   const movePhotoUp = () => {
     if (!item || currentPhotoIndex === 0 || reorderPhotosMutation.isPending) return;
@@ -640,6 +719,81 @@ export default function ItemDetailPage() {
               <Pencil className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-1" />
             </button>
           )}
+        </div>
+
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-4">
+            <MessageSquare className="w-5 h-5" />
+            <h2 className="text-lg font-semibold">Commentaires</h2>
+            <span className="text-muted-foreground text-sm">({comments.length})</span>
+          </div>
+
+          {isLoadingComments ? (
+            <div className="space-y-3">
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-20 w-full" />
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {comments.map((comment) => (
+                <Card key={comment.id} data-testid={`comment-${comment.id}`}>
+                  <CardContent className="pt-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-medium">{comment.user.name}</span>
+                          <span className="text-muted-foreground text-sm">
+                            {comment.createdAt ? formatCommentDate(comment.createdAt.toString()) : ""}
+                          </span>
+                        </div>
+                        <p className="whitespace-pre-wrap">{comment.text}</p>
+                      </div>
+                      {currentUserId && parseInt(currentUserId) === comment.userId && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => deleteCommentMutation.mutate(comment.id)}
+                          disabled={deleteCommentMutation.isPending}
+                          data-testid={`button-delete-comment-${comment.id}`}
+                        >
+                          <Trash2 className="w-4 h-4 text-muted-foreground" />
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+
+              {comments.length === 0 && (
+                <p className="text-muted-foreground text-center py-4">
+                  Aucun commentaire. Soyez le premier à partager un souvenir !
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="mt-4 flex gap-2">
+            <Textarea
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyDown={handleCommentKeyDown}
+              placeholder="Partagez un souvenir, une anecdote..."
+              className="min-h-20 text-base flex-1"
+              data-testid="textarea-new-comment"
+            />
+            <Button
+              onClick={handleAddComment}
+              disabled={!newComment.trim() || addCommentMutation.isPending}
+              className="self-end"
+              data-testid="button-add-comment"
+            >
+              {addCommentMutation.isPending ? (
+                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <Send className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </main>
     </div>

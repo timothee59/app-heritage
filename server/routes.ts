@@ -274,5 +274,93 @@ export async function registerRoutes(
     }
   });
 
+  // Récupérer les commentaires d'une fiche
+  app.get("/api/items/:itemId/comments", async (req, res) => {
+    try {
+      const itemId = parseInt(req.params.itemId);
+      if (isNaN(itemId)) {
+        return res.status(400).json({ message: "ID de fiche invalide" });
+      }
+
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ message: "Fiche non trouvée" });
+      }
+
+      const comments = await storage.getCommentsByItemId(itemId);
+      res.json(comments);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la récupération des commentaires" });
+    }
+  });
+
+  // Ajouter un commentaire à une fiche
+  app.post("/api/items/:itemId/comments", async (req, res) => {
+    try {
+      const userId = parseInt(req.headers["x-user-id"] as string);
+      if (isNaN(userId)) {
+        return res.status(401).json({ message: "Utilisateur non identifié" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "Utilisateur non trouvé" });
+      }
+
+      const itemId = parseInt(req.params.itemId);
+      if (isNaN(itemId)) {
+        return res.status(400).json({ message: "ID de fiche invalide" });
+      }
+
+      const item = await storage.getItem(itemId);
+      if (!item) {
+        return res.status(404).json({ message: "Fiche non trouvée" });
+      }
+
+      const commentSchema = z.object({
+        text: z.string().min(1, "Le commentaire ne peut pas être vide"),
+      });
+
+      const result = commentSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Données invalides", errors: result.error.errors });
+      }
+
+      const comment = await storage.createComment(itemId, userId, result.data.text);
+      res.status(201).json(comment);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de l'ajout du commentaire" });
+    }
+  });
+
+  // Supprimer un commentaire (uniquement par son auteur)
+  app.delete("/api/items/:itemId/comments/:commentId", async (req, res) => {
+    try {
+      const userId = parseInt(req.headers["x-user-id"] as string);
+      if (isNaN(userId)) {
+        return res.status(401).json({ message: "Utilisateur non identifié" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "Utilisateur non trouvé" });
+      }
+
+      const itemId = parseInt(req.params.itemId);
+      const commentId = parseInt(req.params.commentId);
+      
+      if (isNaN(itemId) || isNaN(commentId)) {
+        return res.status(400).json({ message: "ID invalide" });
+      }
+
+      const deleted = await storage.deleteComment(commentId, userId);
+      if (!deleted) {
+        return res.status(403).json({ message: "Vous ne pouvez supprimer que vos propres commentaires" });
+      }
+
+      res.status(204).send();
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la suppression du commentaire" });
+    }
+  });
+
   return httpServer;
 }

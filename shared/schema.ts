@@ -57,3 +57,24 @@ export type Photo = typeof photos.$inferSelect;
 
 // Type combiné pour une fiche avec ses photos
 export type ItemWithPhotos = Item & { photos: Photo[] };
+
+// Commentaires sur les fiches
+export const comments = pgTable("comments", {
+  id: serial("id").primaryKey(),
+  itemId: integer("item_id").notNull(),
+  userId: integer("user_id").notNull(),
+  text: text("text").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertCommentSchema = createInsertSchema(comments).pick({
+  itemId: true,
+  userId: true,
+  text: true,
+});
+
+export type InsertComment = z.infer<typeof insertCommentSchema>;
+export type Comment = typeof comments.$inferSelect;
+
+// Type combiné pour un commentaire avec son auteur
+export type CommentWithUser = Comment & { user: { id: number; name: string } };
