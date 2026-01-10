@@ -11,13 +11,35 @@ import type { User } from "@shared/schema";
 export default function IdentificationPage() {
   const [, setLocation] = useLocation();
   const [selectedUserId, setSelectedUserId] = useState<string>("");
+  const [isCheckingStoredUser, setIsCheckingStoredUser] = useState(true);
 
-  // Vérifier si l'utilisateur est déjà identifié
+  // Vérifier si l'utilisateur mémorisé existe toujours en base
   useEffect(() => {
-    const storedUserId = localStorage.getItem("user_id");
-    if (storedUserId) {
-      setLocation("/gallery");
-    }
+    const checkStoredUser = async () => {
+      const storedUserId = localStorage.getItem("user_id");
+      if (!storedUserId) {
+        setIsCheckingStoredUser(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/users/${storedUserId}`);
+        if (response.ok) {
+          // L'utilisateur existe, rediriger vers la galerie
+          setLocation("/gallery");
+        } else {
+          // L'utilisateur n'existe plus, effacer le localStorage
+          localStorage.removeItem("user_id");
+          setIsCheckingStoredUser(false);
+        }
+      } catch {
+        // Erreur réseau, effacer par sécurité
+        localStorage.removeItem("user_id");
+        setIsCheckingStoredUser(false);
+      }
+    };
+
+    checkStoredUser();
   }, [setLocation]);
 
   // Récupérer la liste des utilisateurs
@@ -39,6 +61,23 @@ export default function IdentificationPage() {
   };
 
   const hasUsers = users && users.length > 0;
+
+  // Afficher un écran de chargement pendant la vérification de l'utilisateur mémorisé
+  if (isCheckingStoredUser) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="py-12">
+            <div className="flex flex-col items-center gap-4">
+              <Skeleton className="h-16 w-16 rounded-full" />
+              <Skeleton className="h-6 w-48" />
+              <Skeleton className="h-4 w-32" />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-4">

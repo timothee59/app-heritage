@@ -3,7 +3,8 @@ import { useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { LogOut, Package } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { Package, User as UserIcon, RefreshCw } from "lucide-react";
 import type { User } from "@shared/schema";
 
 export default function GalleryPage() {
@@ -26,8 +27,8 @@ export default function GalleryPage() {
     enabled: !!currentUserId,
   });
 
-  // Déconnexion
-  const handleLogout = () => {
+  // Changer d'utilisateur
+  const handleChangeUser = () => {
     localStorage.removeItem("user_id");
     setLocation("/");
   };
@@ -36,23 +37,39 @@ export default function GalleryPage() {
     <div className="min-h-screen bg-background">
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background border-b">
-        <div className="flex items-center justify-between p-4">
-          <div>
-            <h1 className="text-lg font-medium">Héritage Partagé</h1>
-            {currentUser && (
-              <p className="text-sm text-muted-foreground">
-                Bonjour, {currentUser.name}
-              </p>
-            )}
-          </div>
-          <Button 
-            variant="ghost" 
-            size="icon"
-            onClick={handleLogout}
-            data-testid="button-logout"
-          >
-            <LogOut className="w-5 h-5" />
-          </Button>
+        <div className="flex items-center justify-between gap-4 p-4">
+          <h1 className="text-lg font-medium">Héritage Partagé</h1>
+          
+          {currentUser && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="gap-2 h-10"
+                  data-testid="button-user-menu"
+                >
+                  <UserIcon className="w-4 h-4" />
+                  <span>{currentUser.name}</span>
+                  <span className="text-muted-foreground text-sm">
+                    ({currentUser.role})
+                  </span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuItem disabled className="font-medium">
+                  {currentUser.name} ({currentUser.role})
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem 
+                  onClick={handleChangeUser}
+                  data-testid="button-change-user"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Changer d'utilisateur
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
         </div>
       </header>
 
