@@ -1,0 +1,154 @@
+# Héritage Partagé - Contexte Projet
+
+## Le Problème
+
+De plus en plus de couples âgés anticipent leur vieillesse en s'installant dans des habitations plus adaptées. Ils quittent donc la maison familiale qui est vendue. Tout le contenu doit être soit donné aux enfants intéressés, soit vendu.
+
+C'est un travail difficile pour des personnes de +65 ans car il faut :
+- Prendre des photos de chaque objet
+- Les partager avec les enfants
+- Gérer les souhaits des uns et des autres
+- S'assurer que tout le monde a l'information
+- Identifier les conflits (plusieurs personnes veulent le même objet)
+- Prendre des décisions équitables
+
+## La Solution
+
+Une application web simple (PWA pour iPad/iPhone) qui permet de :
+1. Photographier les objets de la maison
+2. Créer automatiquement un catalogue partagé
+3. Permettre à chaque membre de la famille d'exprimer ses préférences
+4. Visualiser en transparence les choix de chacun
+5. Identifier facilement les objets "en conflit" ou non traités
+
+## Philosophie MVP
+
+**Baby steps, fail fast, learn faster !**
+
+Cette première version est un test concret avec une vraie famille. Pas besoin d'une app léchée :
+- Pas d'authentification complexe (juste un prénom)
+- Pas de gestion d'invitations (tout le monde accède à la même app)
+- Transparence totale (tout le monde voit tout)
+- Contribution collaborative (tout le monde peut enrichir les fiches)
+
+---
+
+## Architecture Technique
+
+### Stack
+- **Frontend** : React (ou framework JS de Replit)
+- **Backend** : Node.js / Express (ou équivalent Replit)
+- **Base de données** : PostgreSQL (Replit DB)
+- **Hébergement** : Replit
+
+### PWA Requirements
+- Installable sur l'écran d'accueil iOS/Android
+- Accès caméra pour prise de photo
+- Fonctionne offline (optionnel pour MVP)
+
+---
+
+## Modèle de Données
+
+```sql
+-- Utilisateurs (identification simple)
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(50) NOT NULL UNIQUE,
+  role VARCHAR(10) CHECK (role IN ('parent', 'enfant')),
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Fiches objets
+CREATE TABLE items (
+  id SERIAL PRIMARY KEY,
+  number INT UNIQUE NOT NULL,
+  title VARCHAR(100),
+  description TEXT,
+  created_by INT REFERENCES users(id),
+  created_at TIMESTAMP DEFAULT NOW(),
+  deleted_at TIMESTAMP,
+  deleted_by INT REFERENCES users(id)
+);
+
+-- Photos (plusieurs par fiche)
+CREATE TABLE photos (
+  id SERIAL PRIMARY KEY,
+  item_id INT REFERENCES items(id) ON DELETE CASCADE,
+  data TEXT NOT NULL,
+  position INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Préférences utilisateurs
+CREATE TABLE preferences (
+  id SERIAL PRIMARY KEY,
+  item_id INT REFERENCES items(id) ON DELETE CASCADE,
+  user_id INT REFERENCES users(id),
+  level VARCHAR(10) CHECK (level IN ('love', 'maybe', 'no')),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(item_id, user_id)
+);
+
+-- Commentaires
+CREATE TABLE comments (
+  id SERIAL PRIMARY KEY,
+  item_id INT REFERENCES items(id) ON DELETE CASCADE,
+  user_id INT REFERENCES users(id),
+  text TEXT NOT NULL,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+## Epics
+
+### Epic 1 : Identification simple
+Permettre aux utilisateurs de s'identifier avec un prénom et un rôle (parent/enfant), sans mot de passe.
+
+### Epic 2 : Création du catalogue photo
+Photographier ou importer des images pour créer automatiquement des fiches numérotées.
+
+### Epic 3 : Enrichissement collaboratif
+Permettre à tous d'ajouter titre, description et commentaires sur les fiches.
+
+### Epic 4 : Expression des préférences
+Permettre à chacun de marquer son intérêt : "Je le veux !", "Je le veux bien", "Pas intéressé".
+
+### Epic 5 : Consultation et vues filtrées
+Naviguer dans le catalogue avec différents filtres (mes choix, choix des autres, non traités, conflits).
+
+### Epic 6 : Gestion des fiches (soft delete)
+Supprimer/restaurer des fiches avec affichage barré pour les fiches supprimées.
+
+---
+
+## Écrans Principaux
+
+1. **Identification** - Choix/ajout prénom + rôle parent/enfant
+2. **Galerie** - Grid de toutes les fiches avec miniatures et indicateurs
+3. **Détail fiche** - Photo(s), infos, commentaires, préférences de tous
+4. **Ajout photo** - Capture caméra ou import galerie
+5. **Mes fiches à traiter** - Fiches que JE n'ai pas encore vues
+6. **Vue par personne** - Coups de cœur d'une personne spécifique
+7. **Conflits** - Fiches avec plusieurs coups de cœur
+
+---
+
+## Conventions de Code
+
+- Nommage : camelCase pour JS, snake_case pour SQL
+- Commentaires en français
+- Commits atomiques par story
+- Fichiers stories dans `/stories`
+
+---
+
+## Pour Développer une Story
+
+1. Lire le fichier CONTEXT.md (ce fichier)
+2. Lire le fichier de la story dans `/stories`
+3. Implémenter selon les critères d'acceptation
+4. Tester manuellement
+5. Passer à la story suivante
