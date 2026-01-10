@@ -88,6 +88,44 @@ export async function registerRoutes(
     }
   });
 
+  // Mettre à jour une fiche (titre, description)
+  app.patch("/api/items/:id", async (req, res) => {
+    try {
+      const userId = parseInt(req.headers["x-user-id"] as string);
+      if (isNaN(userId)) {
+        return res.status(401).json({ message: "Utilisateur non identifié" });
+      }
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ message: "Utilisateur non trouvé" });
+      }
+
+      const id = parseInt(req.params.id);
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "ID invalide" });
+      }
+
+      const updateSchema = z.object({
+        title: z.string().max(100).nullable().optional(),
+        description: z.string().nullable().optional(),
+      });
+
+      const result = updateSchema.safeParse(req.body);
+      if (!result.success) {
+        return res.status(400).json({ message: "Données invalides", errors: result.error.errors });
+      }
+
+      const updatedItem = await storage.updateItem(id, result.data);
+      if (!updatedItem) {
+        return res.status(404).json({ message: "Fiche non trouvée" });
+      }
+
+      res.json(updatedItem);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors de la mise à jour de la fiche" });
+    }
+  });
+
   // Créer un nouvel item (fiche) avec photo
   app.post("/api/items", async (req, res) => {
     try {

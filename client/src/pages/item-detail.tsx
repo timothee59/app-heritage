@@ -1,11 +1,12 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown } from "lucide-react";
+import { ArrowLeft, Camera, Image, Plus, Trash2, ChevronLeft, ChevronRight, ArrowUp, ArrowDown, Pencil } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { ItemWithPhotos } from "@shared/schema";
@@ -58,8 +59,12 @@ export default function ItemDetailPage() {
   const [currentPhotoIndex, setCurrentPhotoIndex] = useState(0);
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [titleValue, setTitleValue] = useState("");
+  const titleTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const titleInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -76,6 +81,78 @@ export default function ItemDetailPage() {
     queryKey: ["/api/items", itemId],
     enabled: itemId > 0,
   });
+
+  // Synchroniser titleValue quand item change
+  useEffect(() => {
+    if (item) {
+      setTitleValue(item.title || "");
+    }
+  }, [item]);
+
+  const updateItemMutation = useMutation({
+    mutationFn: async (data: { title?: string | null }) => {
+      const response = await apiRequest("PATCH", `/api/items/${itemId}`, data, {
+        "X-User-Id": currentUserId || "",
+      });
+      return await response.json() as ItemWithPhotos;
+    },
+    onSuccess: (updatedItem) => {
+      queryClient.setQueryData(["/api/items", itemId], updatedItem);
+      queryClient.setQueryData(["/api/items"], (oldData: ItemWithPhotos[] | undefined) => {
+        if (!oldData) return oldData;
+        return oldData.map(i => i.id === itemId ? updatedItem : i);
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Erreur",
+        description: "Impossible de sauvegarder le titre.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const saveTitle = useCallback((value: string) => {
+    const trimmedValue = value.trim();
+    updateItemMutation.mutate({ title: trimmedValue || null });
+  }, [updateItemMutation]);
+
+  const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value.slice(0, 100);
+    setTitleValue(newValue);
+    
+    if (titleTimeoutRef.current) {
+      clearTimeout(titleTimeoutRef.current);
+    }
+    titleTimeoutRef.current = setTimeout(() => saveTitle(newValue), 1000);
+  };
+
+  const handleTitleBlur = () => {
+    if (titleTimeoutRef.current) {
+      clearTimeout(titleTimeoutRef.current);
+    }
+    saveTitle(titleValue);
+    setIsEditingTitle(false);
+  };
+
+  const handleTitleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      if (titleTimeoutRef.current) {
+        clearTimeout(titleTimeoutRef.current);
+      }
+      saveTitle(titleValue);
+      setIsEditingTitle(false);
+    }
+    if (e.key === "Escape") {
+      setTitleValue(item?.title || "");
+      setIsEditingTitle(false);
+    }
+  };
+
+  const startEditingTitle = () => {
+    setIsEditingTitle(true);
+    setTimeout(() => titleInputRef.current?.focus(), 50);
+  };
 
   const addPhotoMutation = useMutation({
     mutationFn: async (photoData: string) => {
@@ -348,11 +425,39 @@ export default function ItemDetailPage() {
             <ArrowLeft className="w-5 h-5" />
           </Button>
           <h1 className="text-xl font-semibold">#{item.number}</h1>
-          {item.title && <span className="text-muted-foreground">- {item.title}</span>}
+          {titleValue && <span className="text-muted-foreground">- {titleValue}</span>}
         </div>
       </header>
 
       <main className="p-4">
+        <div className="mb-4">
+          {isEditingTitle ? (
+            <Input
+              ref={titleInputRef}
+              value={titleValue}
+              onChange={handleTitleChange}
+              onBlur={handleTitleBlur}
+              onKeyDown={handleTitleKeyDown}
+              placeholder="Ajouter un titre..."
+              className="text-lg h-12"
+              maxLength={100}
+              data-testid="input-title"
+            />
+          ) : (
+            <button
+              onClick={startEditingTitle}
+              className="flex items-center gap-2 text-lg hover-elevate px-3 py-2 rounded-md w-full text-left"
+              data-testid="button-edit-title"
+            >
+              {titleValue ? (
+                <span className="font-medium">{titleValue}</span>
+              ) : (
+                <span className="text-muted-foreground italic">Ajouter un titre...</span>
+              )}
+              <Pencil className="w-4 h-4 text-muted-foreground" />
+            </button>
+          )}
+        </div>
         <div className="relative aspect-square bg-muted rounded-lg overflow-hidden mb-4">
           {currentPhoto && (
             <img

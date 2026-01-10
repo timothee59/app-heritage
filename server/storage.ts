@@ -14,6 +14,7 @@ export interface IStorage {
   getItem(id: number): Promise<ItemWithPhotos | undefined>;
   getAllItems(): Promise<ItemWithPhotos[]>;
   createItem(createdBy: number, photoData: string): Promise<ItemWithPhotos>;
+  updateItem(id: number, data: { title?: string | null; description?: string | null }): Promise<ItemWithPhotos | undefined>;
   getNextItemNumber(): Promise<number>;
   
   // Photos
@@ -90,6 +91,21 @@ export class DatabaseStorage implements IStorage {
     const photo = await this.addPhoto(item.id, photoData, 0);
     
     return { ...item, photos: [photo] };
+  }
+
+  async updateItem(id: number, data: { title?: string | null; description?: string | null }): Promise<ItemWithPhotos | undefined> {
+    const [updatedItem] = await db.update(items)
+      .set(data)
+      .where(eq(items.id, id))
+      .returning();
+    
+    if (!updatedItem) return undefined;
+    
+    const itemPhotos = await db.select().from(photos)
+      .where(eq(photos.itemId, id))
+      .orderBy(asc(photos.position));
+    
+    return { ...updatedItem, photos: itemPhotos };
   }
 
   // Photos
