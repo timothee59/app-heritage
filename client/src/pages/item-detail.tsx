@@ -823,11 +823,11 @@ export default function ItemDetailPage() {
           >
             <Button
               variant="ghost"
-              className="absolute top-4 right-4 text-white hover:bg-white/20 w-14 h-14 p-0"
+              className="absolute top-4 right-2 text-white hover:bg-white/20 w-16 h-16 p-0"
               onClick={() => setShowLightbox(false)}
               data-testid="button-close-lightbox"
             >
-              <X className="w-10 h-10" />
+              <X className="w-12 h-12" />
             </Button>
             
             {item.photos.length > 1 && (
