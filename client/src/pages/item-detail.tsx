@@ -187,19 +187,16 @@ export default function ItemDetailPage() {
     },
   });
 
-  // Convertir en Title Case (première lettre de chaque mot en majuscule)
-  const toTitleCase = (str: string) => {
-    return str
-      .toLowerCase()
-      .split(' ')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+  // Mettre une majuscule uniquement au premier caractère
+  const capitalizeFirst = (str: string) => {
+    if (!str) return str;
+    return str.charAt(0).toUpperCase() + str.slice(1);
   };
 
   const saveTitle = useCallback((value: string) => {
     const trimmedValue = value.trim();
-    const titleCaseValue = trimmedValue ? toTitleCase(trimmedValue) : null;
-    updateItemMutation.mutate({ title: titleCaseValue });
+    const capitalizedValue = trimmedValue ? capitalizeFirst(trimmedValue) : null;
+    updateItemMutation.mutate({ title: capitalizedValue });
   }, [updateItemMutation]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
