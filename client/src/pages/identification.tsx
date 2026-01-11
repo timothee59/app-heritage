@@ -139,7 +139,7 @@ export default function IdentificationPage() {
               <Heart className="w-8 h-8 text-primary" />
             </div>
             <div className="space-y-2">
-              <CardTitle className="text-2xl">Héritage Partagé</CardTitle>
+              <CardTitle className="text-2xl">Mobilier Partagé</CardTitle>
               <CardDescription className="text-base">
                 Bienvenue !
               </CardDescription>
@@ -234,7 +234,7 @@ export default function IdentificationPage() {
             <Users className="w-8 h-8 text-primary" />
           </div>
           <div className="space-y-2">
-            <CardTitle className="text-2xl">Héritage Partagé</CardTitle>
+            <CardTitle className="text-2xl">Mobilier Partagé</CardTitle>
             <CardDescription className="text-base">
               Qui êtes-vous ?
             </CardDescription>

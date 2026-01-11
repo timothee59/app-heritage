@@ -1,8 +1,8 @@
-# Héritage Partagé
+# Mobilier Partagé
 
 ## Overview
 
-Héritage Partagé is a family inheritance management application designed to help elderly parents (65+) catalog household items and coordinate distribution preferences among family members. The app allows family members to photograph items, express preferences (want it, might want it, not interested), and identify conflicts when multiple people want the same item.
+Mobilier Partagé is a family inheritance management application designed to help elderly parents (65+) catalog household items and coordinate distribution preferences among family members. The app allows family members to photograph items, express preferences (want it, might want it, not interested), and identify conflicts when multiple people want the same item.
 
 This is an MVP focused on simplicity - no complex authentication (just first name selection), full transparency (everyone sees everything), and collaborative contribution. Built as a PWA for iOS/iPad use.
 

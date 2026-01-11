@@ -270,7 +270,7 @@ export default function GalleryPage() {
 
       <header className="sticky top-0 z-50 bg-background border-b">
         <div className="flex items-center justify-between gap-4 p-4">
-          <h1 className="text-lg font-medium">Héritage Partagé</h1>
+          <h1 className="text-lg font-medium">Mobilier Partagé</h1>
           
           {currentUser && (
             <DropdownMenu>
