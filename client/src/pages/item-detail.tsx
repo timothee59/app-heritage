@@ -632,8 +632,8 @@ export default function ItemDetailPage() {
   if (!item) {
     return (
       <div className="min-h-screen bg-background p-4">
-        <Button variant="ghost" onClick={() => setLocation("/gallery")} data-testid="button-back">
-          <ArrowLeft className="w-4 h-4 mr-2" />
+        <Button variant="ghost" className="h-12 text-base gap-2" onClick={() => setLocation("/gallery")} data-testid="button-back">
+          <ArrowLeft className="w-6 h-6" />
           Retour
         </Button>
         <Card className="mt-4">
@@ -698,8 +698,8 @@ export default function ItemDetailPage() {
 
       <header className="sticky top-0 z-50 bg-background border-b">
         <div className="flex items-center gap-4 p-4">
-          <Button variant="ghost" size="icon" onClick={() => setLocation("/gallery")} data-testid="button-back">
-            <ArrowLeft className="w-5 h-5" />
+          <Button variant="ghost" className="w-12 h-12 p-0" onClick={() => setLocation("/gallery")} data-testid="button-back">
+            <ArrowLeft className="w-7 h-7" />
           </Button>
           <h1 className={`text-xl font-semibold ${item.deletedAt ? "line-through text-muted-foreground" : ""}`}>#{item.number}</h1>
           {titleValue && <span className={`text-muted-foreground ${item.deletedAt ? "line-through" : ""}`}>- {titleValue}</span>}
@@ -724,13 +724,13 @@ export default function ItemDetailPage() {
               variant="outline"
               onClick={() => restoreItemMutation.mutate()}
               disabled={restoreItemMutation.isPending}
-              className="gap-2 border-green-500 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950"
+              className="gap-2 h-12 px-5 text-base border-green-500 text-green-700 hover:bg-green-50 dark:text-green-400 dark:hover:bg-green-950"
               data-testid="button-restore"
             >
               {restoreItemMutation.isPending ? (
-                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : (
-                <RotateCcw className="w-4 h-4" />
+                <RotateCcw className="w-5 h-5" />
               )}
               Restaurer
             </Button>
@@ -789,21 +789,19 @@ export default function ItemDetailPage() {
             <div className="absolute inset-0 flex items-center justify-between px-2 pointer-events-none">
               <Button
                 variant="secondary"
-                size="icon"
-                className="opacity-90 shadow-lg pointer-events-auto"
+                className="opacity-90 shadow-lg pointer-events-auto w-12 h-12 p-0"
                 onClick={(e) => { e.stopPropagation(); goToPrevPhoto(); }}
                 data-testid="button-prev-photo"
               >
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-7 h-7" />
               </Button>
               <Button
                 variant="secondary"
-                size="icon"
-                className="opacity-90 shadow-lg pointer-events-auto"
+                className="opacity-90 shadow-lg pointer-events-auto w-12 h-12 p-0"
                 onClick={(e) => { e.stopPropagation(); goToNextPhoto(); }}
                 data-testid="button-next-photo"
               >
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-7 h-7" />
               </Button>
             </div>
           )}
@@ -825,33 +823,30 @@ export default function ItemDetailPage() {
           >
             <Button
               variant="ghost"
-              size="icon"
-              className="absolute top-4 right-4 text-white hover:bg-white/20"
+              className="absolute top-4 right-4 text-white hover:bg-white/20 w-14 h-14 p-0"
               onClick={() => setShowLightbox(false)}
               data-testid="button-close-lightbox"
             >
-              <X className="w-6 h-6" />
+              <X className="w-10 h-10" />
             </Button>
             
             {item.photos.length > 1 && (
               <>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 w-14 h-14 p-0"
                   onClick={(e) => { e.stopPropagation(); goToPrevPhoto(); }}
                   data-testid="button-lightbox-prev"
                 >
-                  <ChevronLeft className="w-8 h-8" />
+                  <ChevronLeft className="w-10 h-10" />
                 </Button>
                 <Button
                   variant="ghost"
-                  size="icon"
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 w-14 h-14 p-0"
                   onClick={(e) => { e.stopPropagation(); goToNextPhoto(); }}
                   data-testid="button-lightbox-next"
                 >
-                  <ChevronRight className="w-8 h-8" />
+                  <ChevronRight className="w-10 h-10" />
                 </Button>
               </>
             )}
@@ -925,17 +920,18 @@ export default function ItemDetailPage() {
           </div>
         )}
 
-        <div className="flex flex-wrap gap-2 justify-center">
+        <div className="flex flex-wrap gap-3 justify-center">
           <Button
             variant="outline"
+            className="h-11 px-4 text-base gap-2"
             onClick={() => setShowAddDialog(true)}
             disabled={isProcessing}
             data-testid="button-add-photo-detail"
           >
             {isProcessing ? (
-              <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+              <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
             ) : (
-              <Plus className="w-4 h-4 mr-2" />
+              <Plus className="w-5 h-5" />
             )}
             Ajouter
           </Button>
@@ -944,29 +940,30 @@ export default function ItemDetailPage() {
             <>
               <Button
                 variant="outline"
-                size="icon"
+                className="w-11 h-11 p-0"
                 onClick={movePhotoUp}
                 disabled={currentPhotoIndex === 0 || reorderPhotosMutation.isPending}
                 data-testid="button-move-photo-up"
               >
-                <ArrowUp className="w-4 h-4" />
+                <ArrowUp className="w-5 h-5" />
               </Button>
               <Button
                 variant="outline"
-                size="icon"
+                className="w-11 h-11 p-0"
                 onClick={movePhotoDown}
                 disabled={currentPhotoIndex === item.photos.length - 1 || reorderPhotosMutation.isPending}
                 data-testid="button-move-photo-down"
               >
-                <ArrowDown className="w-4 h-4" />
+                <ArrowDown className="w-5 h-5" />
               </Button>
               <Button
                 variant="outline"
+                className="h-11 px-4 text-base gap-2"
                 onClick={handleDeletePhoto}
                 disabled={deletePhotoMutation.isPending}
                 data-testid="button-delete-photo"
               >
-                <Trash2 className="w-4 h-4 mr-2" />
+                <Trash2 className="w-5 h-5" />
                 Supprimer
               </Button>
             </>
@@ -1014,7 +1011,7 @@ export default function ItemDetailPage() {
         </div>
 
         <div className="mt-8">
-          <h2 className="text-lg font-semibold mb-4">Votre choix</h2>
+          <h2 className="text-xl font-semibold mb-4">Votre choix</h2>
           {isLoadingPreference ? (
             <div className="flex gap-2">
               <Skeleton className="h-16 flex-1" />
@@ -1022,48 +1019,48 @@ export default function ItemDetailPage() {
               <Skeleton className="h-16 flex-1" />
             </div>
           ) : (
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-3 gap-3">
               <Button
                 variant="outline"
                 onClick={() => handleSetPreference("love")}
                 disabled={setPreferenceMutation.isPending}
-                className={`flex flex-col h-auto py-3 min-h-16 transition-all ${
+                className={`flex flex-col h-auto py-4 min-h-20 transition-all ${
                   myPreference?.level === "love" 
                     ? "border-2 border-red-500 bg-red-50 dark:bg-red-950 scale-105" 
                     : ""
                 }`}
                 data-testid="button-preference-love"
               >
-                <Heart className={`w-6 h-6 mb-1 ${myPreference?.level === "love" ? "text-red-500 fill-red-500" : "text-red-400"}`} />
-                <span className="text-xs text-center">Je le veux !</span>
+                <Heart className={`w-8 h-8 mb-1 ${myPreference?.level === "love" ? "text-red-500 fill-red-500" : "text-red-400"}`} />
+                <span className="text-sm text-center font-medium">Je le veux !</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={() => handleSetPreference("maybe")}
                 disabled={setPreferenceMutation.isPending}
-                className={`flex flex-col h-auto py-3 min-h-16 transition-all ${
+                className={`flex flex-col h-auto py-4 min-h-20 transition-all ${
                   myPreference?.level === "maybe" 
                     ? "border-2 border-orange-500 bg-orange-50 dark:bg-orange-950 scale-105" 
                     : ""
                 }`}
                 data-testid="button-preference-maybe"
               >
-                <HelpCircle className={`w-6 h-6 mb-1 ${myPreference?.level === "maybe" ? "text-orange-500" : "text-orange-400"}`} />
-                <span className="text-xs text-center">Si personne</span>
+                <HelpCircle className={`w-8 h-8 mb-1 ${myPreference?.level === "maybe" ? "text-orange-500" : "text-orange-400"}`} />
+                <span className="text-sm text-center font-medium">Si personne</span>
               </Button>
               <Button
                 variant="outline"
                 onClick={() => handleSetPreference("no")}
                 disabled={setPreferenceMutation.isPending}
-                className={`flex flex-col h-auto py-3 min-h-16 transition-all ${
+                className={`flex flex-col h-auto py-4 min-h-20 transition-all ${
                   myPreference?.level === "no" 
                     ? "border-2 border-gray-500 bg-gray-100 dark:bg-gray-800 scale-105" 
                     : ""
                 }`}
                 data-testid="button-preference-no"
               >
-                <Hand className={`w-6 h-6 mb-1 ${myPreference?.level === "no" ? "text-gray-600" : "text-gray-400"}`} />
-                <span className="text-xs text-center">Pas intéressé</span>
+                <Hand className={`w-8 h-8 mb-1 ${myPreference?.level === "no" ? "text-gray-600" : "text-gray-400"}`} />
+                <span className="text-sm text-center font-medium">Pas intéressé</span>
               </Button>
             </div>
           )}
@@ -1071,8 +1068,8 @@ export default function ItemDetailPage() {
 
         <div className="mt-8">
           <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5" />
-            <h2 className="text-lg font-semibold">Qui veut quoi ?</h2>
+            <Users className="w-6 h-6" />
+            <h2 className="text-xl font-semibold">Qui veut quoi ?</h2>
           </div>
 
           {isLoadingAllPreferences ? (
@@ -1150,9 +1147,9 @@ export default function ItemDetailPage() {
 
         <div className="mt-8">
           <div className="flex items-center gap-2 mb-4">
-            <MessageSquare className="w-5 h-5" />
-            <h2 className="text-lg font-semibold">Commentaires</h2>
-            <span className="text-muted-foreground text-sm">({comments.length})</span>
+            <MessageSquare className="w-6 h-6" />
+            <h2 className="text-xl font-semibold">Commentaires</h2>
+            <span className="text-muted-foreground text-base">({comments.length})</span>
           </div>
 
           {isLoadingComments ? (
@@ -1199,25 +1196,25 @@ export default function ItemDetailPage() {
             </div>
           )}
 
-          <div className="mt-4 flex gap-2">
+          <div className="mt-4 flex gap-3">
             <Textarea
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               onKeyDown={handleCommentKeyDown}
               placeholder="Partagez un souvenir, une anecdote..."
-              className="min-h-20 text-base flex-1"
+              className="min-h-24 text-base flex-1"
               data-testid="textarea-new-comment"
             />
             <Button
               onClick={handleAddComment}
               disabled={!newComment.trim() || addCommentMutation.isPending}
-              className="self-end"
+              className="self-end w-12 h-12 p-0"
               data-testid="button-add-comment"
             >
               {addCommentMutation.isPending ? (
-                <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
               ) : (
-                <Send className="w-4 h-4" />
+                <Send className="w-6 h-6" />
               )}
             </Button>
           </div>
@@ -1229,10 +1226,10 @@ export default function ItemDetailPage() {
               <AlertDialogTrigger asChild>
                 <Button
                   variant="outline"
-                  className="w-full gap-2 text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
+                  className="w-full h-12 gap-2 text-base text-red-600 border-red-200 hover:bg-red-50 dark:text-red-400 dark:border-red-800 dark:hover:bg-red-950"
                   data-testid="button-delete-item"
                 >
-                  <Trash2 className="w-4 h-4" />
+                  <Trash2 className="w-5 h-5" />
                   Supprimer cette fiche
                 </Button>
               </AlertDialogTrigger>

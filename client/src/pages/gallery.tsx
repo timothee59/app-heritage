@@ -8,8 +8,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSepara
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image, Heart, AlertTriangle, Users, HeartOff, PartyPopper, Eye, Trophy, Hand, X, Trash2, EyeOff } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { User, ItemWithPhotos, ItemWithPhotosAndDeleteInfo, ItemWithPhotosAndLovers, ItemWithUserPreference } from "@shared/schema";
@@ -306,79 +304,71 @@ export default function GalleryPage() {
       </header>
 
       <main className="p-4">
-        <div className="flex flex-wrap items-center gap-2 mb-4">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
           <Button
             variant={filter === "all" ? "default" : "outline"}
-            size="sm"
             onClick={() => setFilter("all")}
+            className="text-base h-11 px-4"
             data-testid="filter-all"
           >
             Tous
           </Button>
           <Button
             variant={filter === "my-love" ? "default" : "outline"}
-            size="sm"
             onClick={() => setFilter("my-love")}
-            className="gap-1"
+            className="gap-2 text-base h-11 px-4"
             data-testid="filter-my-love"
           >
-            <Heart className="w-4 h-4" />
+            <Heart className="w-5 h-5" />
             Mes coups de cœur
           </Button>
           <Button
             variant={filter === "conflicts" ? "default" : "outline"}
-            size="sm"
             onClick={() => setFilter("conflicts")}
-            className="gap-1"
+            className="gap-2 text-base h-11 px-4"
             data-testid="filter-conflicts"
           >
-            <AlertTriangle className="w-4 h-4" />
+            <AlertTriangle className="w-5 h-5" />
             Conflits
           </Button>
           <Button
             variant={filter === "user-love" ? "default" : "outline"}
-            size="sm"
             onClick={() => setFilter("user-love")}
-            className="gap-1"
+            className="gap-2 text-base h-11 px-4"
             data-testid="filter-user-love"
           >
-            <Users className="w-4 h-4" />
+            <Users className="w-5 h-5" />
             Par personne
           </Button>
           <Button
             variant={filter === "to-review" ? "default" : "outline"}
-            size="sm"
             onClick={() => setFilter("to-review")}
-            className="gap-1"
+            className="gap-2 text-base h-11 px-4"
             data-testid="filter-to-review"
           >
-            <Eye className="w-4 h-4" />
+            <Eye className="w-5 h-5" />
             À traiter
             {items && filter === "to-review" && items.length > 0 && (
-              <span className="bg-primary-foreground text-primary px-1.5 py-0.5 rounded-full text-xs font-medium ml-1">
+              <span className="bg-primary-foreground text-primary px-2 py-0.5 rounded-full text-sm font-medium ml-1">
                 {items.length}
               </span>
             )}
           </Button>
           
           {filter === "all" && (
-            <div className="flex items-center gap-2 ml-auto">
-              <Switch
-                id="show-deleted"
-                checked={showDeleted}
-                onCheckedChange={setShowDeleted}
-                data-testid="toggle-show-deleted"
-              />
-              <Label htmlFor="show-deleted" className="flex items-center gap-1 text-sm cursor-pointer">
-                {showDeleted ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-                Supprimées
-                {deletedCount > 0 && (
-                  <span className="bg-muted text-muted-foreground px-1.5 py-0.5 rounded-full text-xs">
-                    {deletedCount}
-                  </span>
-                )}
-              </Label>
-            </div>
+            <button
+              onClick={() => setShowDeleted(!showDeleted)}
+              className="flex items-center gap-3 ml-auto h-11 px-4 rounded-md border hover-elevate cursor-pointer"
+              data-testid="toggle-show-deleted"
+            >
+              {showDeleted ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
+              <span className="text-base">Supprimées</span>
+              {deletedCount > 0 && (
+                <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-sm">
+                  {deletedCount}
+                </span>
+              )}
+            </button>
           )}
         </div>
 
