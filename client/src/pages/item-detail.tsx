@@ -817,91 +817,96 @@ export default function ItemDetailPage() {
 
         {showLightbox && currentPhoto && (
           <div 
-            className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center"
+            className="fixed inset-0 z-[100] bg-black/90 flex flex-col overflow-hidden"
             onClick={() => setShowLightbox(false)}
             data-testid="lightbox"
           >
-            <Button
-              variant="ghost"
-              className="absolute top-4 right-2 text-white hover:bg-white/20 w-16 h-16 p-0"
-              onClick={() => setShowLightbox(false)}
-              data-testid="button-close-lightbox"
-            >
-              <X className="w-12 h-12" />
-            </Button>
-            
-            {item.photos.length > 1 && (
-              <>
-                <Button
-                  variant="ghost"
-                  className="absolute left-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 w-14 h-14 p-0"
-                  onClick={(e) => { e.stopPropagation(); goToPrevPhoto(); }}
-                  data-testid="button-lightbox-prev"
-                >
-                  <ChevronLeft className="w-10 h-10" />
-                </Button>
-                <Button
-                  variant="ghost"
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-white hover:bg-white/20 w-14 h-14 p-0"
-                  onClick={(e) => { e.stopPropagation(); goToNextPhoto(); }}
-                  data-testid="button-lightbox-next"
-                >
-                  <ChevronRight className="w-10 h-10" />
-                </Button>
-              </>
-            )}
-            
-            <div 
-              className="max-w-[90vw] max-h-[90vh] overflow-auto touch-none"
-              onClick={(e) => e.stopPropagation()}
-              onWheel={(e) => {
-                e.preventDefault();
-                const delta = e.deltaY > 0 ? -0.1 : 0.1;
-                setZoomLevel((prev) => Math.max(0.5, Math.min(4, prev + delta)));
-              }}
-              onTouchStart={handleTouchStart}
-              onTouchMove={handleTouchMove}
-              onTouchEnd={handleTouchEnd}
-            >
-              <img
-                src={currentPhoto.data}
-                alt={`Photo ${currentPhotoIndex + 1} de la fiche #${item.number}`}
-                className="transition-transform duration-200 select-none"
-                style={{ transform: `scale(${zoomLevel})`, transformOrigin: "center center" }}
-                draggable={false}
-                data-testid="img-lightbox"
-              />
+            <div className="flex-none flex justify-between items-center px-2 py-2 safe-area-top">
+              {item.photos.length > 1 ? (
+                <div className="bg-black/50 px-3 py-1 rounded-full">
+                  <span className="text-white text-sm">
+                    {currentPhotoIndex + 1} / {item.photos.length}
+                  </span>
+                </div>
+              ) : (
+                <div />
+              )}
+              <Button
+                variant="ghost"
+                className="text-white hover:bg-white/20 w-14 h-14 p-0"
+                onClick={() => setShowLightbox(false)}
+                data-testid="button-close-lightbox"
+              >
+                <X className="w-10 h-10" />
+              </Button>
             </div>
             
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-4">
+            <div className="flex-1 relative flex items-center justify-center overflow-hidden min-h-0">
+              {item.photos.length > 1 && (
+                <>
+                  <Button
+                    variant="ghost"
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-10 text-white hover:bg-white/20 w-12 h-12 p-0"
+                    onClick={(e) => { e.stopPropagation(); goToPrevPhoto(); }}
+                    data-testid="button-lightbox-prev"
+                  >
+                    <ChevronLeft className="w-8 h-8" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-10 text-white hover:bg-white/20 w-12 h-12 p-0"
+                    onClick={(e) => { e.stopPropagation(); goToNextPhoto(); }}
+                    data-testid="button-lightbox-next"
+                  >
+                    <ChevronRight className="w-8 h-8" />
+                  </Button>
+                </>
+              )}
+              
+              <div 
+                className="max-w-full max-h-full overflow-auto touch-none"
+                onClick={(e) => e.stopPropagation()}
+                onWheel={(e) => {
+                  e.preventDefault();
+                  const delta = e.deltaY > 0 ? -0.1 : 0.1;
+                  setZoomLevel((prev) => Math.max(0.5, Math.min(4, prev + delta)));
+                }}
+                onTouchStart={handleTouchStart}
+                onTouchMove={handleTouchMove}
+                onTouchEnd={handleTouchEnd}
+              >
+                <img
+                  src={currentPhoto.data}
+                  alt={`Photo ${currentPhotoIndex + 1} de la fiche #${item.number}`}
+                  className="max-w-full max-h-[calc(100vh-140px)] object-contain transition-transform duration-200 select-none"
+                  style={{ transform: `scale(${zoomLevel})`, transformOrigin: "center center" }}
+                  draggable={false}
+                  data-testid="img-lightbox"
+                />
+              </div>
+            </div>
+            
+            <div className="flex-none flex justify-center items-center gap-4 py-3 safe-area-bottom">
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-white hover:bg-white/20"
+                className="text-white hover:bg-white/20 w-12 h-12"
                 onClick={(e) => { e.stopPropagation(); setZoomLevel((prev) => Math.max(0.5, prev - 0.25)); }}
                 data-testid="button-zoom-out"
               >
                 -
               </Button>
-              <span className="text-white text-sm">{Math.round(zoomLevel * 100)}%</span>
+              <span className="text-white text-sm min-w-[3rem] text-center">{Math.round(zoomLevel * 100)}%</span>
               <Button
                 variant="ghost"
                 size="sm"
-                className="text-white hover:bg-white/20"
+                className="text-white hover:bg-white/20 w-12 h-12"
                 onClick={(e) => { e.stopPropagation(); setZoomLevel((prev) => Math.min(4, prev + 0.25)); }}
                 data-testid="button-zoom-in"
               >
                 +
               </Button>
             </div>
-            
-            {item.photos.length > 1 && (
-              <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/50 px-3 py-1 rounded-full">
-                <span className="text-white text-sm">
-                  {currentPhotoIndex + 1} / {item.photos.length}
-                </span>
-              </div>
-            )}
           </div>
         )}
 
