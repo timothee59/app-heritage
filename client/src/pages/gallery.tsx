@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image, Heart, AlertTriangle, Users, HeartOff, PartyPopper, Eye, Trophy, Hand, X, Trash2, EyeOff } from "lucide-react";
+import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image, Heart, AlertTriangle, Users, HeartOff, PartyPopper, Eye, Trophy, Hand, X, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { User, ItemWithPhotos, ItemWithPhotosAndDeleteInfo, ItemWithPhotosAndLovers, ItemWithUserPreference } from "@shared/schema";
@@ -61,7 +61,6 @@ export default function GalleryPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [filter, setFilter] = useState<FilterType>("all");
   const [selectedUserId, setSelectedUserId] = useState<string>("");
-  const [showDeleted, setShowDeleted] = useState(true);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
@@ -96,11 +95,11 @@ export default function GalleryPage() {
     if (filter === "user-love" && selectedUserId) return `/api/items?filter=user-preferences&userId=${selectedUserId}`;
     if (filter === "conflicts") return "/api/items?filter=conflicts";
     if (filter === "to-review") return "/api/items?filter=to-review";
-    return `/api/items?showDeleted=${showDeleted}`;
+    return "/api/items";
   };
 
   const { data: items, isLoading: itemsLoading } = useQuery<(ItemWithPhotosAndDeleteInfo | ItemWithPhotosAndLovers | ItemWithUserPreference)[]>({
-    queryKey: ["/api/items", filter, selectedUserId, showDeleted],
+    queryKey: ["/api/items", filter, selectedUserId],
     queryFn: async () => {
       const response = await fetch(getQueryUrl(), {
         headers: currentUserId ? { "X-User-Id": currentUserId } : {},
@@ -111,8 +110,16 @@ export default function GalleryPage() {
     enabled: filter !== "user-love" || !!selectedUserId,
   });
 
-  // Count deleted items
-  const deletedCount = items?.filter(item => "deletedAt" in item && item.deletedAt).length || 0;
+  // Count deleted items for trash badge
+  const { data: deletedItems = [] } = useQuery<ItemWithPhotosAndDeleteInfo[]>({
+    queryKey: ["/api/items", "deleted"],
+    queryFn: async () => {
+      const response = await fetch("/api/items?filter=deleted");
+      if (!response.ok) return [];
+      return await response.json();
+    },
+  });
+  const deletedCount = deletedItems.length;
 
   const createItemMutation = useMutation({
     mutationFn: async (photoData: string) => {
@@ -355,21 +362,20 @@ export default function GalleryPage() {
             )}
           </Button>
           
-          {filter === "all" && (
-            <button
-              onClick={() => setShowDeleted(!showDeleted)}
-              className="flex items-center gap-3 ml-auto h-11 px-4 rounded-md border hover-elevate cursor-pointer"
-              data-testid="toggle-show-deleted"
-            >
-              {showDeleted ? <Eye className="w-5 h-5" /> : <EyeOff className="w-5 h-5" />}
-              <span className="text-base">Supprimées</span>
-              {deletedCount > 0 && (
-                <span className="bg-muted text-muted-foreground px-2 py-0.5 rounded-full text-sm">
-                  {deletedCount}
-                </span>
-              )}
-            </button>
-          )}
+          <Button
+            variant="outline"
+            onClick={() => setLocation("/deleted")}
+            className="gap-2 text-base h-11 px-4 ml-auto"
+            data-testid="button-trash"
+          >
+            <Trash2 className="w-5 h-5" />
+            Corbeille
+            {deletedCount > 0 && (
+              <span className="bg-destructive text-destructive-foreground px-2 py-0.5 rounded-full text-sm font-medium">
+                {deletedCount}
+              </span>
+            )}
+          </Button>
         </div>
 
         {filter === "user-love" && (

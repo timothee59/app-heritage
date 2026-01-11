@@ -41,6 +41,7 @@ export interface IStorage {
   getItemsWithConflicts(): Promise<ItemWithPhotosAndLovers[]>;
   getItemsWithoutPreference(userId: number): Promise<ItemWithPhotos[]>;
   getItemsByUserAllPreferences(userId: number): Promise<ItemWithUserPreference[]>;
+  getDeletedItems(): Promise<ItemWithPhotosAndDeleteInfo[]>;
 }
 
 // DatabaseStorage - Utilise PostgreSQL via Drizzle ORM
@@ -153,6 +154,38 @@ export class DatabaseStorage implements IStorage {
       .orderBy(asc(photos.position));
     
     return { ...updated, photos: itemPhotos };
+  }
+
+  async getDeletedItems(): Promise<ItemWithPhotosAndDeleteInfo[]> {
+    const allItems = await db.execute(sql`
+      SELECT i.*, u.name as deleted_by_name
+      FROM items i
+      LEFT JOIN users u ON i.deleted_by = u.id
+      WHERE i.deleted_at IS NOT NULL
+      ORDER BY i.deleted_at DESC
+    `);
+    
+    const result: ItemWithPhotosAndDeleteInfo[] = [];
+    for (const row of allItems.rows) {
+      const itemPhotos = await db.select().from(photos)
+        .where(eq(photos.itemId, row.id as number))
+        .orderBy(asc(photos.position));
+      
+      result.push({
+        id: row.id as number,
+        number: row.number as number,
+        title: row.title as string | null,
+        description: row.description as string | null,
+        createdBy: row.created_by as number,
+        createdAt: row.created_at ? new Date(row.created_at as string) : null,
+        deletedAt: row.deleted_at ? new Date(row.deleted_at as string) : null,
+        deletedBy: row.deleted_by as number | null,
+        photos: itemPhotos,
+        deletedByName: row.deleted_by_name as string | undefined
+      });
+    }
+    
+    return result;
   }
 
   async createItem(createdBy: number, photoData: string): Promise<ItemWithPhotos> {

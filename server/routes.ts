@@ -105,8 +105,14 @@ export async function registerRoutes(
         return res.json(items);
       }
 
-      // Par défaut : toutes les fiches (avec option pour masquer les supprimées)
-      const items = await storage.getAllItems(showDeleted);
+      // Filtre "deleted" : uniquement les fiches supprimées
+      if (filter === "deleted") {
+        const items = await storage.getDeletedItems();
+        return res.json(items);
+      }
+
+      // Par défaut : toutes les fiches actives (sans les supprimées)
+      const items = await storage.getAllItems(false);
       res.json(items);
     } catch (error) {
       res.status(500).json({ message: "Erreur lors de la récupération des fiches" });
