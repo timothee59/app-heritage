@@ -152,13 +152,17 @@ export default function ItemDetailPage() {
     },
   });
 
-  // Synchroniser titleValue et descriptionValue quand item change
+  // Synchroniser titleValue et descriptionValue quand item change (sauf si en cours d'édition)
   useEffect(() => {
     if (item) {
-      setTitleValue(item.title || "");
-      setDescriptionValue(item.description || "");
+      if (!isEditingTitle) {
+        setTitleValue(item.title || "");
+      }
+      if (!isEditingDescription) {
+        setDescriptionValue(item.description || "");
+      }
     }
-  }, [item]);
+  }, [item, isEditingTitle, isEditingDescription]);
 
   const updateItemMutation = useMutation({
     mutationFn: async (data: { title?: string | null; description?: string | null }) => {
@@ -183,9 +187,19 @@ export default function ItemDetailPage() {
     },
   });
 
+  // Convertir en Title Case (première lettre de chaque mot en majuscule)
+  const toTitleCase = (str: string) => {
+    return str
+      .toLowerCase()
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  };
+
   const saveTitle = useCallback((value: string) => {
     const trimmedValue = value.trim();
-    updateItemMutation.mutate({ title: trimmedValue || null });
+    const titleCaseValue = trimmedValue ? toTitleCase(trimmedValue) : null;
+    updateItemMutation.mutate({ title: titleCaseValue });
   }, [updateItemMutation]);
 
   const handleTitleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
