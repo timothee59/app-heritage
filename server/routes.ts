@@ -156,6 +156,7 @@ export async function registerRoutes(
       const updateSchema = z.object({
         title: z.string().max(100).nullable().optional(),
         description: z.string().nullable().optional(),
+        estimatedValue: z.number().min(0).nullable().optional(),
       });
 
       const result = updateSchema.safeParse(req.body);
@@ -581,6 +582,48 @@ export async function registerRoutes(
       res.status(200).json(preference);
     } catch (error) {
       res.status(500).json({ message: "Erreur lors de l'enregistrement de la préférence" });
+    }
+  });
+
+  // Statistiques de répartition des biens par personne (basé sur "Je le veux !")
+  app.get("/api/stats/repartition", async (_req, res) => {
+    try {
+      const allUsers = await storage.getAllUsers();
+      const stats = [];
+      
+      for (const user of allUsers) {
+        // Récupérer les items où l'utilisateur a dit "Je le veux !"
+        const lovedItems = await storage.getItemsByUserPreference(user.id, "love");
+        
+        // Filtrer les items non-supprimés seulement
+        const activeLovedItems = lovedItems.filter(item => !item.deletedAt);
+        
+        let totalValue = 0;
+        let itemsWithValue = 0;
+        
+        for (const item of activeLovedItems) {
+          if (item.estimatedValue !== null && item.estimatedValue !== undefined) {
+            totalValue += item.estimatedValue;
+            itemsWithValue++;
+          }
+        }
+        
+        stats.push({
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          itemCount: activeLovedItems.length,
+          itemsWithValue,
+          totalValue,
+        });
+      }
+      
+      // Trier par valeur totale décroissante
+      stats.sort((a, b) => b.totalValue - a.totalValue);
+      
+      res.json(stats);
+    } catch (error) {
+      res.status(500).json({ message: "Erreur lors du calcul des statistiques" });
     }
   });
 

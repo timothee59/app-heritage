@@ -14,7 +14,7 @@ export interface IStorage {
   getItem(id: number): Promise<ItemWithPhotosAndDeleteInfo | undefined>;
   getAllItems(includeDeleted?: boolean): Promise<ItemWithPhotosAndDeleteInfo[]>;
   createItem(createdBy: number, photoData: string): Promise<ItemWithPhotos>;
-  updateItem(id: number, data: { title?: string | null; description?: string | null }): Promise<ItemWithPhotos | undefined>;
+  updateItem(id: number, data: { title?: string | null; description?: string | null; estimatedValue?: number | null }): Promise<ItemWithPhotos | undefined>;
   getNextItemNumber(): Promise<number>;
   softDeleteItem(id: number, deletedBy: number): Promise<ItemWithPhotos | undefined>;
   restoreItem(id: number): Promise<ItemWithPhotos | undefined>;
@@ -114,6 +114,7 @@ export class DatabaseStorage implements IStorage {
         number: row.number as number,
         title: row.title as string | null,
         description: row.description as string | null,
+        estimatedValue: row.estimated_value as number | null,
         createdBy: row.created_by as number,
         createdAt: row.created_at ? new Date(row.created_at as string) : null,
         deletedAt: row.deleted_at ? new Date(row.deleted_at as string) : null,
@@ -176,6 +177,7 @@ export class DatabaseStorage implements IStorage {
         number: row.number as number,
         title: row.title as string | null,
         description: row.description as string | null,
+        estimatedValue: row.estimated_value as number | null,
         createdBy: row.created_by as number,
         createdAt: row.created_at ? new Date(row.created_at as string) : null,
         deletedAt: row.deleted_at ? new Date(row.deleted_at as string) : null,
@@ -203,7 +205,7 @@ export class DatabaseStorage implements IStorage {
     return { ...item, photos: [photo] };
   }
 
-  async updateItem(id: number, data: { title?: string | null; description?: string | null }): Promise<ItemWithPhotos | undefined> {
+  async updateItem(id: number, data: { title?: string | null; description?: string | null; estimatedValue?: number | null }): Promise<ItemWithPhotos | undefined> {
     const [updatedItem] = await db.update(items)
       .set(data)
       .where(eq(items.id, id))
@@ -428,6 +430,7 @@ export class DatabaseStorage implements IStorage {
         number: row.number as number,
         title: row.title as string | null,
         description: row.description as string | null,
+        estimatedValue: row.estimated_value as number | null,
         createdBy: row.created_by as number,
         createdAt: row.created_at ? new Date(row.created_at as string) : null,
         deletedAt: row.deleted_at ? new Date(row.deleted_at as string) : null,
@@ -462,6 +465,7 @@ export class DatabaseStorage implements IStorage {
         number: row.number as number,
         title: row.title as string | null,
         description: row.description as string | null,
+        estimatedValue: row.estimated_value as number | null,
         createdBy: row.created_by as number,
         createdAt: row.created_at ? new Date(row.created_at as string) : null,
         deletedAt: row.deleted_at ? new Date(row.deleted_at as string) : null,
