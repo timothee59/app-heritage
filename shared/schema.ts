@@ -1,4 +1,4 @@
-import { pgTable, text, varchar, serial, timestamp, integer, unique } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, serial, timestamp, integer, unique, real } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -26,6 +26,7 @@ export const items = pgTable("items", {
   number: integer("number").notNull(), // Numéro auto-incrémenté (#1, #2, #3...)
   title: varchar("title", { length: 100 }), // Titre optionnel
   description: text("description"), // Description optionnelle
+  estimatedValue: real("estimated_value"), // Valeur estimée en euros (optionnel)
   createdBy: integer("created_by").notNull(), // ID de l'utilisateur qui a créé
   createdAt: timestamp("created_at").defaultNow(),
   deletedAt: timestamp("deleted_at"), // Soft delete - date de suppression
