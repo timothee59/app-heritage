@@ -310,7 +310,7 @@ export default function ItemDetailPage() {
 
   const formatCurrency = (value: number | null | undefined): string => {
     if (value === null || value === undefined) return "";
-    return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(value);
+    return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(value);
   };
 
   const addPhotoMutation = useMutation({
@@ -809,6 +809,43 @@ export default function ItemDetailPage() {
             </button>
           )}
         </div>
+
+        <div className="mb-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-sm font-medium text-muted-foreground">Valeur estimée</span>
+          </div>
+          {isEditingValue ? (
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                inputMode="numeric"
+                value={valueInput}
+                onChange={(e) => setValueInput(e.target.value)}
+                onBlur={handleValueBlur}
+                onKeyDown={handleValueKeyDown}
+                placeholder="Ex: 150"
+                className="h-12 text-lg max-w-40"
+                autoFocus
+                data-testid="input-value"
+              />
+              <span className="text-lg">€</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsEditingValue(true)}
+              className="flex items-center gap-2 hover-elevate px-3 py-3 min-h-11 rounded-md text-left"
+              data-testid="button-edit-value"
+            >
+              {item.estimatedValue !== null && item.estimatedValue !== undefined ? (
+                <span className="text-lg font-medium text-green-600 dark:text-green-400">{formatCurrency(item.estimatedValue)}</span>
+              ) : (
+                <span className="text-muted-foreground italic">Ajouter une valeur...</span>
+              )}
+              <Pencil className="w-4 h-4 text-muted-foreground" />
+            </button>
+          )}
+        </div>
+
         <div 
           className="relative bg-muted rounded-lg overflow-hidden mb-4 cursor-pointer group max-h-[50vh] sm:max-h-[40vh] lg:max-h-[35vh]"
           onClick={() => { setZoomLevel(1); setShowLightbox(true); }}
@@ -1053,42 +1090,6 @@ export default function ItemDetailPage() {
                 <span className="text-muted-foreground italic">Ajouter une description...</span>
               )}
               <Pencil className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-1" />
-            </button>
-          )}
-        </div>
-
-        <div className="mt-6">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-sm font-medium text-muted-foreground">Valeur estimée</span>
-          </div>
-          {isEditingValue ? (
-            <div className="flex items-center gap-2">
-              <Input
-                type="text"
-                inputMode="decimal"
-                value={valueInput}
-                onChange={(e) => setValueInput(e.target.value)}
-                onBlur={handleValueBlur}
-                onKeyDown={handleValueKeyDown}
-                placeholder="Ex: 150"
-                className="h-12 text-lg max-w-40"
-                autoFocus
-                data-testid="input-value"
-              />
-              <span className="text-lg">€</span>
-            </div>
-          ) : (
-            <button
-              onClick={() => setIsEditingValue(true)}
-              className="flex items-center gap-2 hover-elevate px-3 py-3 min-h-11 rounded-md text-left"
-              data-testid="button-edit-value"
-            >
-              {item.estimatedValue !== null && item.estimatedValue !== undefined ? (
-                <span className="text-lg font-medium">{formatCurrency(item.estimatedValue)}</span>
-              ) : (
-                <span className="text-muted-foreground italic">Ajouter une valeur...</span>
-              )}
-              <Pencil className="w-4 h-4 text-muted-foreground" />
             </button>
           )}
         </div>

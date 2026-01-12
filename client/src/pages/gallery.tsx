@@ -480,8 +480,8 @@ export default function GalleryPage() {
                         data-testid={`value-badge-${item.id}`}
                       >
                         {item.estimatedValue >= 1000 
-                          ? `${new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(item.estimatedValue / 1000)} k€`
-                          : new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(item.estimatedValue)
+                          ? `${new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 }).format(item.estimatedValue / 1000)} k€`
+                          : new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(item.estimatedValue)
                         }
                       </div>
                     )}
