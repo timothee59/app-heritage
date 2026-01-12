@@ -594,17 +594,27 @@ export async function registerRoutes(
       for (const user of allUsers) {
         // Récupérer les items où l'utilisateur a dit "Je le veux !"
         const lovedItems = await storage.getItemsByUserPreference(user.id, "love");
-        
-        // Filtrer les items non-supprimés seulement
         const activeLovedItems = lovedItems.filter(item => !item.deletedAt);
         
-        let totalValue = 0;
-        let itemsWithValue = 0;
+        // Récupérer les items où l'utilisateur a dit "Si personne d'autre"
+        const maybeItems = await storage.getItemsByUserPreference(user.id, "maybe");
+        const activeMaybeItems = maybeItems.filter(item => !item.deletedAt);
         
+        let loveValue = 0;
+        let loveItemsWithValue = 0;
         for (const item of activeLovedItems) {
           if (item.estimatedValue !== null && item.estimatedValue !== undefined) {
-            totalValue += item.estimatedValue;
-            itemsWithValue++;
+            loveValue += item.estimatedValue;
+            loveItemsWithValue++;
+          }
+        }
+        
+        let maybeValue = 0;
+        let maybeItemsWithValue = 0;
+        for (const item of activeMaybeItems) {
+          if (item.estimatedValue !== null && item.estimatedValue !== undefined) {
+            maybeValue += item.estimatedValue;
+            maybeItemsWithValue++;
           }
         }
         
@@ -612,14 +622,17 @@ export async function registerRoutes(
           userId: user.id,
           userName: user.name,
           userRole: user.role,
-          itemCount: activeLovedItems.length,
-          itemsWithValue,
-          totalValue,
+          loveCount: activeLovedItems.length,
+          loveItemsWithValue,
+          loveValue,
+          maybeCount: activeMaybeItems.length,
+          maybeItemsWithValue,
+          maybeValue,
         });
       }
       
-      // Trier par valeur totale décroissante
-      stats.sort((a, b) => b.totalValue - a.totalValue);
+      // Trier par valeur totale décroissante (love + maybe)
+      stats.sort((a, b) => (b.loveValue + b.maybeValue) - (a.loveValue + a.maybeValue));
       
       res.json(stats);
     } catch (error) {

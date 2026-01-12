@@ -4,15 +4,18 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Users, Heart, Package, Euro } from "lucide-react";
+import { ArrowLeft, Users, Heart, Package, Euro, HelpCircle } from "lucide-react";
 
 interface RepartitionStat {
   userId: number;
   userName: string;
   userRole: string;
-  itemCount: number;
-  itemsWithValue: number;
-  totalValue: number;
+  loveCount: number;
+  loveItemsWithValue: number;
+  loveValue: number;
+  maybeCount: number;
+  maybeItemsWithValue: number;
+  maybeValue: number;
 }
 
 function formatCurrency(value: number): string {
@@ -42,11 +45,13 @@ export default function RepartitionPage() {
     enabled: !!currentUserId,
   });
 
-  const totalItems = stats?.reduce((sum, s) => sum + s.itemCount, 0) || 0;
-  const totalValue = stats?.reduce((sum, s) => sum + s.totalValue, 0) || 0;
-  const maxValue = stats && stats.length > 0 ? Math.max(...stats.map(s => s.totalValue)) : 0;
-  const minValue = stats && stats.length > 0 ? Math.min(...stats.map(s => s.totalValue)) : 0;
-  const ecartMax = maxValue - minValue;
+  const totalLoveItems = stats?.reduce((sum, s) => sum + s.loveCount, 0) || 0;
+  const totalLoveValue = stats?.reduce((sum, s) => sum + s.loveValue, 0) || 0;
+  const totalMaybeItems = stats?.reduce((sum, s) => sum + s.maybeCount, 0) || 0;
+  const totalMaybeValue = stats?.reduce((sum, s) => sum + s.maybeValue, 0) || 0;
+  const maxLoveValue = stats && stats.length > 0 ? Math.max(...stats.map(s => s.loveValue)) : 0;
+  const minLoveValue = stats && stats.length > 0 ? Math.min(...stats.map(s => s.loveValue)) : 0;
+  const ecartMax = maxLoveValue - minLoveValue;
 
   if (!currentUserId) return null;
 
@@ -78,7 +83,7 @@ export default function RepartitionPage() {
               Vue d'ensemble
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
             {isLoading ? (
               <div className="space-y-2">
                 <Skeleton className="h-5 w-40" />
@@ -86,17 +91,25 @@ export default function RepartitionPage() {
               </div>
             ) : (
               <>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Total des choix "Je le veux !"</span>
-                  <span className="font-medium">{totalItems} objets</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Valeur totale estimée</span>
-                  <span className="font-medium">{formatCurrency(totalValue)}</span>
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <Heart className="w-4 h-4 text-red-500" />
+                      "Je le veux !"
+                    </span>
+                    <span className="font-medium">{totalLoveItems} objets = {formatCurrency(totalLoveValue)}</span>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground flex items-center gap-2">
+                      <HelpCircle className="w-4 h-4 text-orange-500" />
+                      "Si personne d'autre"
+                    </span>
+                    <span className="font-medium">{totalMaybeItems} objets = {formatCurrency(totalMaybeValue)}</span>
+                  </div>
                 </div>
                 {stats && stats.length > 1 && ecartMax > 0 && (
                   <div className="flex justify-between pt-2 border-t">
-                    <span className="text-muted-foreground">Écart max entre membres</span>
+                    <span className="text-muted-foreground">Écart max (Je le veux !)</span>
                     <span className="font-medium text-amber-600 dark:text-amber-400">{formatCurrency(ecartMax)}</span>
                   </div>
                 )}
@@ -127,42 +140,59 @@ export default function RepartitionPage() {
               {stats.map((stat, index) => (
                 <Card 
                   key={stat.userId} 
-                  className={index === 0 && stats.length > 1 && stat.totalValue > 0 ? "ring-2 ring-green-500" : ""}
+                  className={index === 0 && stats.length > 1 && stat.loveValue > 0 ? "ring-2 ring-green-500" : ""}
                   data-testid={`stat-card-${stat.userId}`}
                 >
                   <CardContent className="py-4">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold text-lg">{stat.userName}</span>
-                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                            {stat.userRole === "parent" ? "Parent" : "Enfant"}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-2 mt-1 text-muted-foreground">
-                          <Package className="w-4 h-4" />
-                          <span>{stat.itemCount} objet{stat.itemCount > 1 ? "s" : ""}</span>
-                          {stat.itemsWithValue < stat.itemCount && (
-                            <span className="text-xs">({stat.itemsWithValue} valorisé{stat.itemsWithValue > 1 ? "s" : ""})</span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-xl font-bold text-green-600 dark:text-green-400">
-                          {formatCurrency(stat.totalValue)}
+                    <div className="flex justify-between items-start mb-3">
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold text-lg">{stat.userName}</span>
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                          {stat.userRole === "parent" ? "Parent" : "Enfant"}
                         </span>
                       </div>
                     </div>
-                    {stat.totalValue > 0 && totalValue > 0 && (
+                    
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <Heart className="w-4 h-4 text-red-500 fill-red-500" />
+                          <span>{stat.loveCount} objet{stat.loveCount > 1 ? "s" : ""}</span>
+                          {stat.loveItemsWithValue < stat.loveCount && stat.loveCount > 0 && (
+                            <span className="text-xs">({stat.loveItemsWithValue} valorisé{stat.loveItemsWithValue > 1 ? "s" : ""})</span>
+                          )}
+                        </div>
+                        <span className="text-lg font-bold text-green-600 dark:text-green-400">
+                          {formatCurrency(stat.loveValue)}
+                        </span>
+                      </div>
+                      
+                      {stat.maybeCount > 0 && (
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 text-muted-foreground">
+                            <HelpCircle className="w-4 h-4 text-orange-500" />
+                            <span>{stat.maybeCount} en attente</span>
+                            {stat.maybeItemsWithValue < stat.maybeCount && (
+                              <span className="text-xs">({stat.maybeItemsWithValue} valorisé{stat.maybeItemsWithValue > 1 ? "s" : ""})</span>
+                            )}
+                          </div>
+                          <span className="font-medium text-orange-600 dark:text-orange-400">
+                            + {formatCurrency(stat.maybeValue)}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {stat.loveValue > 0 && totalLoveValue > 0 && (
                       <div className="mt-3">
                         <div className="h-2 bg-muted rounded-full overflow-hidden">
                           <div 
                             className="h-full bg-green-500 rounded-full transition-all"
-                            style={{ width: `${(stat.totalValue / totalValue) * 100}%` }}
+                            style={{ width: `${(stat.loveValue / totalLoveValue) * 100}%` }}
                           />
                         </div>
                         <div className="text-xs text-muted-foreground mt-1 text-right">
-                          {Math.round((stat.totalValue / totalValue) * 100)}% du total
+                          {Math.round((stat.loveValue / totalLoveValue) * 100)}% des "Je le veux !"
                         </div>
                       </div>
                     )}
