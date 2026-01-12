@@ -9,6 +9,7 @@ import GalleryPage from "@/pages/gallery";
 import AddUserPage from "@/pages/add-user";
 import ItemDetailPage from "@/pages/item-detail";
 import DeletedItemsPage from "@/pages/deleted-items";
+import RepartitionPage from "@/pages/repartition";
 
 function Router() {
   return (
@@ -16,6 +17,7 @@ function Router() {
       <Route path="/" component={IdentificationPage} />
       <Route path="/gallery" component={GalleryPage} />
       <Route path="/deleted" component={DeletedItemsPage} />
+      <Route path="/repartition" component={RepartitionPage} />
       <Route path="/item/:id" component={ItemDetailPage} />
       <Route path="/add-user" component={AddUserPage} />
       <Route component={NotFound} />

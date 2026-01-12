@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image, Heart, AlertTriangle, Users, HeartOff, PartyPopper, Eye, Trophy, Hand, X, Trash2 } from "lucide-react";
+import { Camera, Plus, User as UserIcon, RefreshCw, Package, Image, Heart, AlertTriangle, Users, HeartOff, PartyPopper, Eye, Trophy, Hand, X, Trash2, Euro } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { User, ItemWithPhotos, ItemWithPhotosAndDeleteInfo, ItemWithPhotosAndLovers, ItemWithUserPreference } from "@shared/schema";
@@ -364,8 +364,17 @@ export default function GalleryPage() {
           
           <Button
             variant="outline"
-            onClick={() => setLocation("/deleted")}
+            onClick={() => setLocation("/repartition")}
             className="gap-2 text-base h-11 px-4 ml-auto"
+            data-testid="button-repartition"
+          >
+            <Euro className="w-5 h-5" />
+            Répartition
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => setLocation("/deleted")}
+            className="gap-2 text-base h-11 px-4"
             data-testid="button-trash"
           >
             <Trash2 className="w-5 h-5" />
@@ -463,6 +472,17 @@ export default function GalleryPage() {
                     {isDeleted && (
                       <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                         <div className="w-[120%] h-1 bg-red-500 rotate-[-15deg] shadow-sm" />
+                      </div>
+                    )}
+                    {!isDeleted && item.estimatedValue !== null && item.estimatedValue !== undefined && (
+                      <div 
+                        className="absolute top-2 left-2 bg-green-600/90 text-white text-xs font-medium px-2 py-1 rounded-full shadow-md"
+                        data-testid={`value-badge-${item.id}`}
+                      >
+                        {item.estimatedValue >= 1000 
+                          ? `${new Intl.NumberFormat("fr-FR", { minimumFractionDigits: 0, maximumFractionDigits: 1 }).format(item.estimatedValue / 1000)} k€`
+                          : new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(item.estimatedValue)
+                        }
                       </div>
                     )}
                   </div>

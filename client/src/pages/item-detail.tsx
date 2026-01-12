@@ -90,6 +90,8 @@ export default function ItemDetailPage() {
   const [titleValue, setTitleValue] = useState("");
   const [isEditingDescription, setIsEditingDescription] = useState(false);
   const [descriptionValue, setDescriptionValue] = useState("");
+  const [isEditingValue, setIsEditingValue] = useState(false);
+  const [valueInput, setValueInput] = useState("");
   const [newComment, setNewComment] = useState("");
   const [showLightbox, setShowLightbox] = useState(false);
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -165,7 +167,7 @@ export default function ItemDetailPage() {
   }, [item, isEditingTitle, isEditingDescription]);
 
   const updateItemMutation = useMutation({
-    mutationFn: async (data: { title?: string | null; description?: string | null }) => {
+    mutationFn: async (data: { title?: string | null; description?: string | null; estimatedValue?: number | null }) => {
       const response = await apiRequest("PATCH", `/api/items/${itemId}`, data, {
         "X-User-Id": currentUserId || "",
       });
@@ -269,6 +271,46 @@ export default function ItemDetailPage() {
   const startEditingDescription = () => {
     setIsEditingDescription(true);
     setTimeout(() => descriptionTextareaRef.current?.focus(), 50);
+  };
+
+  // Synchroniser valueInput quand item change
+  useEffect(() => {
+    if (item && !isEditingValue) {
+      setValueInput(item.estimatedValue !== null && item.estimatedValue !== undefined ? String(item.estimatedValue) : "");
+    }
+  }, [item, isEditingValue]);
+
+  const saveValue = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (trimmed === "") {
+      updateItemMutation.mutate({ estimatedValue: null });
+    } else {
+      const numValue = parseFloat(trimmed.replace(",", "."));
+      if (!isNaN(numValue) && numValue >= 0) {
+        updateItemMutation.mutate({ estimatedValue: numValue });
+      }
+    }
+  }, [updateItemMutation]);
+
+  const handleValueBlur = () => {
+    saveValue(valueInput);
+    setIsEditingValue(false);
+  };
+
+  const handleValueKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter") {
+      saveValue(valueInput);
+      setIsEditingValue(false);
+    }
+    if (e.key === "Escape") {
+      setValueInput(item?.estimatedValue !== null && item?.estimatedValue !== undefined ? String(item.estimatedValue) : "");
+      setIsEditingValue(false);
+    }
+  };
+
+  const formatCurrency = (value: number | null | undefined): string => {
+    if (value === null || value === undefined) return "";
+    return new Intl.NumberFormat("fr-FR", { style: "currency", currency: "EUR" }).format(value);
   };
 
   const addPhotoMutation = useMutation({
@@ -1011,6 +1053,42 @@ export default function ItemDetailPage() {
                 <span className="text-muted-foreground italic">Ajouter une description...</span>
               )}
               <Pencil className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-1" />
+            </button>
+          )}
+        </div>
+
+        <div className="mt-6">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-sm font-medium text-muted-foreground">Valeur estimée</span>
+          </div>
+          {isEditingValue ? (
+            <div className="flex items-center gap-2">
+              <Input
+                type="text"
+                inputMode="decimal"
+                value={valueInput}
+                onChange={(e) => setValueInput(e.target.value)}
+                onBlur={handleValueBlur}
+                onKeyDown={handleValueKeyDown}
+                placeholder="Ex: 150"
+                className="h-12 text-lg max-w-40"
+                autoFocus
+                data-testid="input-value"
+              />
+              <span className="text-lg">€</span>
+            </div>
+          ) : (
+            <button
+              onClick={() => setIsEditingValue(true)}
+              className="flex items-center gap-2 hover-elevate px-3 py-3 min-h-11 rounded-md text-left"
+              data-testid="button-edit-value"
+            >
+              {item.estimatedValue !== null && item.estimatedValue !== undefined ? (
+                <span className="text-lg font-medium">{formatCurrency(item.estimatedValue)}</span>
+              ) : (
+                <span className="text-muted-foreground italic">Ajouter une valeur...</span>
+              )}
+              <Pencil className="w-4 h-4 text-muted-foreground" />
             </button>
           )}
         </div>
